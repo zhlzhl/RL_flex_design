@@ -253,7 +253,11 @@ def trpo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
     get_pi_params = core.flat_concat(pi_params)
     set_pi_params = core.assign_params_from_flat(v_ph, pi_params)
 
-    sess = tf.Session()
+    # create a tf session with GPU memory usage option to be allow_growth so that one program will not use up the
+    # whole GPU memory
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+    sess = tf.Session(config=config)
     sess.run(tf.global_variables_initializer())
 
     # Sync params across processes

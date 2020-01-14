@@ -8,3 +8,5 @@ data/
 .vscode/
 .DS_Store
 _build/
+
+openai-education-spinningup-latest.pdf

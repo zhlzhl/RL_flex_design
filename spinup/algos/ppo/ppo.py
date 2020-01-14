@@ -216,8 +216,14 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
     train_pi = MpiAdamOptimizer(learning_rate=pi_lr).minimize(pi_loss)
     train_v = MpiAdamOptimizer(learning_rate=vf_lr).minimize(v_loss)
 
-    sess = tf.Session()
+    # create a tf session with GPU memory usage option to be allow_growth so that one program will not use up the
+    # whole GPU memory
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+    sess = tf.Session(config=config)
     sess.run(tf.global_variables_initializer())
+    # sess = tf.Session()
+    # sess.run(tf.global_variables_initializer())
 
     # Sync params across processes
     sess.run(sync_all_params())

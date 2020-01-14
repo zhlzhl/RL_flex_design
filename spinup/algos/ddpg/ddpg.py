@@ -171,7 +171,11 @@ def ddpg(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
     target_init = tf.group([tf.assign(v_targ, v_main)
                               for v_main, v_targ in zip(get_vars('main'), get_vars('target'))])
 
-    sess = tf.Session()
+    # create a tf session with GPU memory usage option to be allow_growth so that one program will not use up the
+    # whole GPU memory
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+    sess = tf.Session(config=config)
     sess.run(tf.global_variables_initializer())
     sess.run(target_init)
 
