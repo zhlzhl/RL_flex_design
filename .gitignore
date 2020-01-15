@@ -10,3 +10,15 @@ data/
 _build/
 
 openai-education-spinningup-latest.pdf
+
+dist/
+
+gurobi.log
+
+spinup/__init__.pyc
+
+spinup/algos/__init__.pyc
+
+spinup/algos/ddpg/__init__.pyc
+
+spinup/algos/ddpg/ddpg.pyc

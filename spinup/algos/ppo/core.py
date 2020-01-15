@@ -1,7 +1,7 @@
 import numpy as np
 import tensorflow as tf
 import scipy.signal
-from gym.spaces import Box, Discrete
+from gym.spaces import Box, Discrete, MultiBinary
 
 EPS = 1e-8
 
@@ -21,7 +21,10 @@ def placeholder_from_space(space):
         return placeholder(space.shape)
     elif isinstance(space, Discrete):
         return tf.placeholder(dtype=tf.int32, shape=(None,))
+    elif isinstance(space, MultiBinary):
+        return tf.placeholder(dtype=tf.float32, shape=(None, space.n))
     raise NotImplementedError
+
 
 def placeholders_from_spaces(*args):
     return [placeholder_from_space(space) for space in args]
