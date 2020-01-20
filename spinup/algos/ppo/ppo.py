@@ -4,6 +4,8 @@ import gym
 import time
 import spinup.algos.ppo.core as core
 from spinup.utils.logx import EpochLogger
+from spinup.utils.tensorboard_logging import Logger
+from datetime import datetime
 from spinup.utils.mpi_tf import MpiAdamOptimizer, sync_all_params
 from spinup.utils.mpi_tools import mpi_fork, mpi_avg, proc_id, mpi_statistics_scalar, num_procs
 
@@ -30,7 +32,7 @@ class PPOBuffer:
         """
         Append one timestep of agent-environment interaction to the buffer.
         """
-        assert self.ptr < self.max_size     # buffer has to have room so you can store
+        assert self.ptr < self.max_size  # buffer has to have room so you can store
         self.obs_buf[self.ptr] = obs
         self.act_buf[self.ptr] = act
         self.rew_buf[self.ptr] = rew
@@ -57,14 +59,14 @@ class PPOBuffer:
         path_slice = slice(self.path_start_idx, self.ptr)
         rews = np.append(self.rew_buf[path_slice], last_val)
         vals = np.append(self.val_buf[path_slice], last_val)
-        
+
         # the next two lines implement GAE-Lambda advantage calculation
         deltas = rews[:-1] + self.gamma * vals[1:] - vals[:-1]
         self.adv_buf[path_slice] = core.discount_cumsum(deltas, self.gamma * self.lam)
-        
+
         # the next line computes rewards-to-go, to be targets for the value function
         self.ret_buf[path_slice] = core.discount_cumsum(rews, self.gamma)[:-1]
-        
+
         self.path_start_idx = self.ptr
 
     def get(self):
@@ -73,12 +75,12 @@ class PPOBuffer:
         the buffer, with advantages appropriately normalized (shifted to have
         mean zero and std one). Also, resets some pointers in the buffer.
         """
-        assert self.ptr == self.max_size    # buffer has to be full before you can get
+        assert self.ptr == self.max_size  # buffer has to be full before you can get
         self.ptr, self.path_start_idx = 0, 0
         # the next two lines implement the advantage normalization trick
         adv_mean, adv_std = mpi_statistics_scalar(self.adv_buf)
         self.adv_buf = (self.adv_buf - adv_mean) / adv_std
-        return [self.obs_buf, self.act_buf, self.adv_buf, 
+        return [self.obs_buf, self.act_buf, self.adv_buf,
                 self.ret_buf, self.logp_buf]
 
 
@@ -89,10 +91,12 @@ Proximal Policy Optimization (by clipping),
 with early stopping based on approximate KL
 
 """
-def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0, 
+
+
+def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
         steps_per_epoch=4000, epochs=50, gamma=0.99, clip_ratio=0.2, pi_lr=3e-4,
         vf_lr=1e-3, train_pi_iters=80, train_v_iters=80, lam=0.97, max_ep_len=1000,
-        target_kl=0.01, logger_kwargs=dict(), save_freq=10):
+        target_kl=0.01, logger_kwargs=dict(), save_freq=10, custom_h=None):
     """
 
     Args:
@@ -168,6 +172,10 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
     logger = EpochLogger(**logger_kwargs)
     logger.save_config(locals())
 
+    # create logger for tensorboard
+    tb_logdir = "{}/tb_logs/{}".format(logger.output_dir, datetime.now().strftime("%Y-%m-%d_%H-%M"))
+    tb_logger = Logger(log_dir=tb_logdir)
+
     seed += 10000 * proc_id()
     tf.set_random_seed(seed)
     np.random.seed(seed)
@@ -175,9 +183,14 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
     env = env_fn()
     obs_dim = env.observation_space.shape
     act_dim = env.action_space.shape
-    
+
     # Share information about action space with policy architecture
     ac_kwargs['action_space'] = env.action_space
+
+    if custom_h is not None:
+        hidden_layers_str_list = custom_h.split('-')
+        hidden_layers_int_list = [int(h) for h in hidden_layers_str_list]
+        ac_kwargs['hidden_sizes'] = hidden_layers_int_list
 
     # Inputs to computation graph
     x_ph, a_ph = core.placeholders_from_spaces(env.observation_space, env.action_space)
@@ -198,18 +211,18 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
 
     # Count variables
     var_counts = tuple(core.count_vars(scope) for scope in ['pi', 'v'])
-    logger.log('\nNumber of parameters: \t pi: %d, \t v: %d\n'%var_counts)
+    logger.log('\nNumber of parameters: \t pi: %d, \t v: %d\n' % var_counts)
 
     # PPO objectives
-    ratio = tf.exp(logp - logp_old_ph)          # pi(a|s) / pi_old(a|s)
-    min_adv = tf.where(adv_ph>0, (1+clip_ratio)*adv_ph, (1-clip_ratio)*adv_ph)
+    ratio = tf.exp(logp - logp_old_ph)  # pi(a|s) / pi_old(a|s)
+    min_adv = tf.where(adv_ph > 0, (1 + clip_ratio) * adv_ph, (1 - clip_ratio) * adv_ph)
     pi_loss = -tf.reduce_mean(tf.minimum(ratio * adv_ph, min_adv))
-    v_loss = tf.reduce_mean((ret_ph - v)**2)
+    v_loss = tf.reduce_mean((ret_ph - v) ** 2)
 
     # Info (useful to watch during learning)
-    approx_kl = tf.reduce_mean(logp_old_ph - logp)      # a sample estimate for KL-divergence, easy to compute
-    approx_ent = tf.reduce_mean(-logp)                  # a sample estimate for entropy, also easy to compute
-    clipped = tf.logical_or(ratio > (1+clip_ratio), ratio < (1-clip_ratio))
+    approx_kl = tf.reduce_mean(logp_old_ph - logp)  # a sample estimate for KL-divergence, easy to compute
+    approx_ent = tf.reduce_mean(-logp)  # a sample estimate for entropy, also easy to compute
+    clipped = tf.logical_or(ratio > (1 + clip_ratio), ratio < (1 - clip_ratio))
     clipfrac = tf.reduce_mean(tf.cast(clipped, tf.float32))
 
     # Optimizers
@@ -222,8 +235,8 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
     config.gpu_options.allow_growth = True
     sess = tf.Session(config=config)
     sess.run(tf.global_variables_initializer())
-    # sess = tf.Session()
-    # sess.run(tf.global_variables_initializer())
+    # log tf graph
+    tf.summary.FileWriter(tb_logdir, sess.graph)
 
     # Sync params across processes
     sess.run(sync_all_params())
@@ -232,7 +245,7 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
     logger.setup_tf_saver(sess, inputs={'x': x_ph}, outputs={'pi': pi, 'v': v})
 
     def update():
-        inputs = {k:v for k,v in zip(all_phs, buf.get())}
+        inputs = {k: v for k, v in zip(all_phs, buf.get())}
         pi_l_old, v_l_old, ent = sess.run([pi_loss, v_loss, approx_ent], feed_dict=inputs)
 
         # Training
@@ -240,7 +253,7 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
             _, kl = sess.run([train_pi, approx_kl], feed_dict=inputs)
             kl = mpi_avg(kl)
             if kl > 1.5 * target_kl:
-                logger.log('Early stopping at step %d due to reaching max kl.'%i)
+                logger.log('Early stopping at step %d due to reaching max kl.' % i)
                 break
         logger.store(StopIter=i)
         for _ in range(train_v_iters):
@@ -248,7 +261,7 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
 
         # Log changes from update
         pi_l_new, v_l_new, kl, cf = sess.run([pi_loss, v_loss, approx_kl, clipfrac], feed_dict=inputs)
-        logger.store(LossPi=pi_l_old, LossV=v_l_old, 
+        logger.store(LossPi=pi_l_old, LossV=v_l_old,
                      KL=kl, Entropy=ent, ClipFrac=cf,
                      DeltaLossPi=(pi_l_new - pi_l_old),
                      DeltaLossV=(v_l_new - v_l_old))
@@ -259,7 +272,7 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
     # Main loop: collect experience in env and update/log each epoch
     for epoch in range(epochs):
         for t in range(local_steps_per_epoch):
-            a, v_t, logp_t = sess.run(get_action_ops, feed_dict={x_ph: o.reshape(1,-1)})
+            a, v_t, logp_t = sess.run(get_action_ops, feed_dict={x_ph: o.reshape(1, -1)})
 
             # save and log
             buf.store(o, a, r, v_t, logp_t)
@@ -270,11 +283,11 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
             ep_len += 1
 
             terminal = d or (ep_len == max_ep_len)
-            if terminal or (t==local_steps_per_epoch-1):
-                if not(terminal):
-                    print('Warning: trajectory cut off by epoch at %d steps.'%ep_len)
+            if terminal or (t == local_steps_per_epoch - 1):
+                if not (terminal):
+                    print('Warning: trajectory cut off by epoch at %d steps.' % ep_len)
                 # if trajectory didn't reach terminal state, bootstrap value target
-                last_val = r if d else sess.run(v, feed_dict={x_ph: o.reshape(1,-1)})
+                last_val = r if d else sess.run(v, feed_dict={x_ph: o.reshape(1, -1)})
                 buf.finish_path(last_val)
                 if terminal:
                     # only save EpRet / EpLen if trajectory finished
@@ -282,18 +295,24 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
                 o, r, d, ep_ret, ep_len = env.reset(), 0, False, 0, 0
 
         # Save model
-        if (epoch % save_freq == 0) or (epoch == epochs-1):
-            logger.save_state({'env': env}, None)
+        if (epoch % save_freq == 0) or (epoch == epochs - 1):
+            # Save a new model every save_freq and at the last epoch. Do not overwrite the previous save.
+            logger.save_state({'env': env}, epoch)
 
         # Perform PPO update!
         update()
+
+        # # # Log into tensorboard
+        log_to_tb(tb_logger, logger, epoch)
+        tb_logger.log_scalar(tag="TotalEnvInteracts", value=(epoch + 1) * steps_per_epoch, step=epoch)
+        tb_logger.log_scalar(tag="Time", value=time.time() - start_time, step=epoch)
 
         # Log info about epoch
         logger.log_tabular('Epoch', epoch)
         logger.log_tabular('EpRet', with_min_and_max=True)
         logger.log_tabular('EpLen', average_only=True)
         logger.log_tabular('VVals', with_min_and_max=True)
-        logger.log_tabular('TotalEnvInteracts', (epoch+1)*steps_per_epoch)
+        logger.log_tabular('TotalEnvInteracts', (epoch + 1) * steps_per_epoch)
         logger.log_tabular('LossPi', average_only=True)
         logger.log_tabular('LossV', average_only=True)
         logger.log_tabular('DeltaLossPi', average_only=True)
@@ -302,15 +321,55 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
         logger.log_tabular('KL', average_only=True)
         logger.log_tabular('ClipFrac', average_only=True)
         logger.log_tabular('StopIter', average_only=True)
-        logger.log_tabular('Time', time.time()-start_time)
+        logger.log_tabular('Time', time.time() - start_time)
         logger.dump_tabular()
+
+
+# to be used for logging to tensorboard
+def log_to_tb(tb_logger, logger, epoch):
+    log_key_to_tb(tb_logger, logger, epoch, key="EpRet", with_min_and_max=True)
+    log_key_to_tb(tb_logger, logger, epoch, key="EpLen", with_min_and_max=False)
+    log_key_to_tb(tb_logger, logger, epoch, key="VVals", with_min_and_max=True)
+    log_key_to_tb(tb_logger, logger, epoch, key="LossPi", with_min_and_max=False)
+    log_key_to_tb(tb_logger, logger, epoch, key="LossV", with_min_and_max=False)
+    log_key_to_tb(tb_logger, logger, epoch, key="DeltaLossPi", with_min_and_max=False)
+    log_key_to_tb(tb_logger, logger, epoch, key="DeltaLossV", with_min_and_max=False)
+    log_key_to_tb(tb_logger, logger, epoch, key="Entropy", with_min_and_max=False)
+    log_key_to_tb(tb_logger, logger, epoch, key="KL", with_min_and_max=False)
+    log_key_to_tb(tb_logger, logger, epoch, key="ClipFrac", with_min_and_max=False)
+    log_key_to_tb(tb_logger, logger, epoch, key="StopIter", with_min_and_max=False)
+
+
+# to be used for logging to tensorboard
+def log_key_to_tb(tb_logger, logger, epoch, key, with_min_and_max=False):
+    mean, std, min, max = get_stats(logger, key=key, with_min_and_max=with_min_and_max)
+    if with_min_and_max:
+        tb_logger.log_scalar(tag="{}-Average".format(key), value=mean, step=epoch)
+        tb_logger.log_scalar(tag="{}-Std".format(key), value=std, step=epoch)
+        tb_logger.log_scalar(tag="{}-Max".format(key), value=max, step=epoch)
+        tb_logger.log_scalar(tag="{}-Min".format(key), value=min, step=epoch)
+    else:
+        tb_logger.log_scalar(tag=key, value=mean, step=epoch)
+
+
+# to be used for logging to tensorboard
+def get_stats(logger, key, with_min_and_max=True):
+    v = logger.epoch_dict[key]
+    vals = np.concatenate(v) if isinstance(v[0], np.ndarray) and len(v[0].shape) > 0 else v
+    stats = mpi_statistics_scalar(vals, with_min_and_max=with_min_and_max)
+    if with_min_and_max:
+        return stats  # mean, std, min, max
+    else:
+        return stats[0], None, None, None
+
 
 if __name__ == '__main__':
     import argparse
+
     parser = argparse.ArgumentParser()
     parser.add_argument('--env', type=str, default='HalfCheetah-v2')
     parser.add_argument('--hid', type=int, default=64)
-    parser.add_argument('--l', type=int, default=2)
+    parser.add_argument('--l', type=int, default=2)  # number of layers
     parser.add_argument('--gamma', type=float, default=0.99)
     parser.add_argument('--seed', '-s', type=int, default=0)
     parser.add_argument('--cpu', type=int, default=4)
@@ -322,9 +381,10 @@ if __name__ == '__main__':
     mpi_fork(args.cpu)  # run parallel code with mpi
 
     from spinup.utils.run_utils import setup_logger_kwargs
+
     logger_kwargs = setup_logger_kwargs(args.exp_name, args.seed)
 
-    ppo(lambda : gym.make(args.env), actor_critic=core.mlp_actor_critic,
-        ac_kwargs=dict(hidden_sizes=[args.hid]*args.l), gamma=args.gamma, 
+    ppo(lambda: gym.make(args.env), actor_critic=core.mlp_actor_critic,
+        ac_kwargs=dict(hidden_sizes=[args.hid] * args.l), gamma=args.gamma,
         seed=args.seed, steps_per_epoch=args.steps, epochs=args.epochs,
         logger_kwargs=logger_kwargs)
