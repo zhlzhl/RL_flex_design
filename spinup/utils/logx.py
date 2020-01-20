@@ -328,6 +328,9 @@ class EpochLogger(Logger):
                 super().log_tabular('Min'+key, stats[2])
         self.epoch_dict[key] = []
 
+    # todo add a copy of log_tabular to return stats for tensorboard logging, note that in the last line of the
+    #  function, epoch_dict[key] is cleared.
+
     def get_stats(self, key):
         """
         Lets an algorithm ask the logger for mean/std/min/max of a diagnostic.
