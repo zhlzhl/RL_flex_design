@@ -261,7 +261,8 @@ def vpg(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
 
         # Save model
         if (epoch % save_freq == 0) or (epoch == epochs-1):
-            logger.save_state({'env': env}, None)
+            # Save a new model every save_freq and at the last epoch. Do not overwrite the previous save.
+            logger.save_state({'env': env}, epoch)
 
         # Perform VPG update!
         update()
