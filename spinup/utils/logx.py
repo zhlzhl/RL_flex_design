@@ -183,6 +183,7 @@ class Logger:
             try:
                 joblib.dump(state_dict, osp.join(self.output_dir, fname))
             except:
+                # todo: I got this warning in the latest two runs. need to fix this.
                 self.log('Warning: could not pickle state_dict.', color='red')
             if hasattr(self, 'tf_saver_elements'):
                 self._tf_simple_save(itr)

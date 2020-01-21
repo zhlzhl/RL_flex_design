@@ -19,6 +19,8 @@ def run_experiment(args):
     eg.add('max_ep_len', 200)
     eg.add('ac_kwargs:activation', eval(args.act), '')
     eg.add('custom_h', args.custom_h)
+    eg.add('do_checkpoint_eval', args.do_checkpoint_eval)
+
     if args.algo == "ppo":
         eg.run(ppo)
     elif args.algo == "vpg":
@@ -38,6 +40,7 @@ if __name__ == '__main__':
     # added custom_h to specify hidden layers with different sizes, e.g., "1024-128".
     parser.add_argument('--custom_h', nargs='+', default=None)
     parser.add_argument('--act', type=str, default="tf.nn.relu")
+    parser.add_argument('--do_checkpoint_eval', action='store_true', help="Whether to do evaluation per save frequency")
 
     args = parser.parse_args()
 

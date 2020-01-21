@@ -8,6 +8,8 @@ from spinup.utils.tensorboard_logging import Logger
 from datetime import datetime
 from spinup.utils.mpi_tf import MpiAdamOptimizer, sync_all_params
 from spinup.utils.mpi_tools import mpi_fork, mpi_avg, proc_id, mpi_statistics_scalar, num_procs
+from spinup.utils.custom_utils import *
+import copy
 
 
 class PPOBuffer:
@@ -96,7 +98,7 @@ with early stopping based on approximate KL
 def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
         steps_per_epoch=4000, epochs=50, gamma=0.99, clip_ratio=0.2, pi_lr=3e-4,
         vf_lr=1e-3, train_pi_iters=80, train_v_iters=80, lam=0.97, max_ep_len=1000,
-        target_kl=0.01, logger_kwargs=dict(), save_freq=10, custom_h=None):
+        target_kl=0.01, logger_kwargs=dict(), save_freq=10, custom_h=None, do_checkpoint_eval=False):
     """
 
     Args:
@@ -173,7 +175,7 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
     logger.save_config(locals())
 
     # create logger for tensorboard
-    tb_logdir = "{}/tb_logs/{}".format(logger.output_dir, datetime.now().strftime("%Y-%m-%d_%H-%M"))
+    tb_logdir = "{}/tb_logs/".format(logger.output_dir)
     tb_logger = Logger(log_dir=tb_logdir)
 
     seed += 10000 * proc_id()
@@ -244,6 +246,10 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
     # Setup model saving
     logger.setup_tf_saver(sess, inputs={'x': x_ph}, outputs={'pi': pi, 'v': v})
 
+    # for saving the best models and performances during train and evaluate
+    best_eval_AverageEpRet = 0.0
+    best_eval_StdEpRet = 1.0e20
+
     def update():
         inputs = {k: v for k, v in zip(all_phs, buf.get())}
         pi_l_old, v_l_old, ent = sess.run([pi_loss, v_loss, approx_ent], feed_dict=inputs)
@@ -299,11 +305,45 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
             # Save a new model every save_freq and at the last epoch. Do not overwrite the previous save.
             logger.save_state({'env': env}, epoch)
 
+            # Evaluate and save best model
+            if do_checkpoint_eval:
+                # below is a hack. best model related stuff is saved at itr 999999, therefore, simple_save999999.
+                # Doing this way, I can use test_policy and plot directly to test the best models.
+                # saved best models includes:
+                # 1) a copy of the env
+                # 2) the best rl model with parameters
+                # 3) a pickle file "best_eval_performance_n_structure" storing best_performance, best_structure and epoch
+                # note that 1) and 2) are spinningup defaults, and 3) is a custom save
+                eval_logger = EpochLogger(**dict(
+                    exp_name=logger_kwargs['exp_name'],
+                    output_dir=os.path.join(logger.output_dir, "simple_save999999")))
+
+                best_eval_AverageEpRet, best_eval_StdEpRet = eval_and_save_best_model(
+                    best_eval_AverageEpRet, best_eval_StdEpRet,
+                    eval_logger=eval_logger,
+                    train_logger=logger,
+                    tb_logger=tb_logger,
+                    epoch=epoch,
+                    env=env,
+                    get_action=lambda x: sess.run(pi, feed_dict={x_ph: x[None, :]})[0]
+                )
+
         # Perform PPO update!
         update()
 
         # # # Log into tensorboard
-        log_to_tb(tb_logger, logger, epoch)
+        # log_to_tb(tb_logger, logger, epoch)
+        log_key_to_tb(tb_logger, logger, epoch, key="EpRet", with_min_and_max=True)
+        log_key_to_tb(tb_logger, logger, epoch, key="EpLen", with_min_and_max=False)
+        log_key_to_tb(tb_logger, logger, epoch, key="VVals", with_min_and_max=True)
+        log_key_to_tb(tb_logger, logger, epoch, key="LossPi", with_min_and_max=False)
+        log_key_to_tb(tb_logger, logger, epoch, key="LossV", with_min_and_max=False)
+        log_key_to_tb(tb_logger, logger, epoch, key="DeltaLossPi", with_min_and_max=False)
+        log_key_to_tb(tb_logger, logger, epoch, key="DeltaLossV", with_min_and_max=False)
+        log_key_to_tb(tb_logger, logger, epoch, key="Entropy", with_min_and_max=False)
+        log_key_to_tb(tb_logger, logger, epoch, key="KL", with_min_and_max=False)
+        log_key_to_tb(tb_logger, logger, epoch, key="ClipFrac", with_min_and_max=False)
+        log_key_to_tb(tb_logger, logger, epoch, key="StopIter", with_min_and_max=False)
         tb_logger.log_scalar(tag="TotalEnvInteracts", value=(epoch + 1) * steps_per_epoch, step=epoch)
         tb_logger.log_scalar(tag="Time", value=time.time() - start_time, step=epoch)
 
@@ -323,44 +363,6 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
         logger.log_tabular('StopIter', average_only=True)
         logger.log_tabular('Time', time.time() - start_time)
         logger.dump_tabular()
-
-
-# to be used for logging to tensorboard
-def log_to_tb(tb_logger, logger, epoch):
-    log_key_to_tb(tb_logger, logger, epoch, key="EpRet", with_min_and_max=True)
-    log_key_to_tb(tb_logger, logger, epoch, key="EpLen", with_min_and_max=False)
-    log_key_to_tb(tb_logger, logger, epoch, key="VVals", with_min_and_max=True)
-    log_key_to_tb(tb_logger, logger, epoch, key="LossPi", with_min_and_max=False)
-    log_key_to_tb(tb_logger, logger, epoch, key="LossV", with_min_and_max=False)
-    log_key_to_tb(tb_logger, logger, epoch, key="DeltaLossPi", with_min_and_max=False)
-    log_key_to_tb(tb_logger, logger, epoch, key="DeltaLossV", with_min_and_max=False)
-    log_key_to_tb(tb_logger, logger, epoch, key="Entropy", with_min_and_max=False)
-    log_key_to_tb(tb_logger, logger, epoch, key="KL", with_min_and_max=False)
-    log_key_to_tb(tb_logger, logger, epoch, key="ClipFrac", with_min_and_max=False)
-    log_key_to_tb(tb_logger, logger, epoch, key="StopIter", with_min_and_max=False)
-
-
-# to be used for logging to tensorboard
-def log_key_to_tb(tb_logger, logger, epoch, key, with_min_and_max=False):
-    mean, std, min, max = get_stats(logger, key=key, with_min_and_max=with_min_and_max)
-    if with_min_and_max:
-        tb_logger.log_scalar(tag="{}-Average".format(key), value=mean, step=epoch)
-        tb_logger.log_scalar(tag="{}-Std".format(key), value=std, step=epoch)
-        tb_logger.log_scalar(tag="{}-Max".format(key), value=max, step=epoch)
-        tb_logger.log_scalar(tag="{}-Min".format(key), value=min, step=epoch)
-    else:
-        tb_logger.log_scalar(tag=key, value=mean, step=epoch)
-
-
-# to be used for logging to tensorboard
-def get_stats(logger, key, with_min_and_max=True):
-    v = logger.epoch_dict[key]
-    vals = np.concatenate(v) if isinstance(v[0], np.ndarray) and len(v[0].shape) > 0 else v
-    stats = mpi_statistics_scalar(vals, with_min_and_max=with_min_and_max)
-    if with_min_and_max:
-        return stats  # mean, std, min, max
-    else:
-        return stats[0], None, None, None
 
 
 if __name__ == '__main__':
