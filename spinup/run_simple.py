@@ -6,12 +6,11 @@ import gym
 import tensorflow as tf
 
 def run_experiment(args):
-    def env_fn():
-        import flexibility  # register flexibility to gym env registry
-        return gym.make(args.env_name)
+    # def env_fn():
+    #     import flexibility  # register flexibility to gym env registry
+    #     return gym.make(args.env_name)
 
     eg = ExperimentGrid(name=args.exp_name)
-    eg.add('env_fn', env_fn)
     eg.add('seed', [10*i for i in range(args.num_runs)])
     eg.add('epochs', args.epochs)
     eg.add('steps_per_epoch', args.steps_per_epoch)
@@ -20,6 +19,7 @@ def run_experiment(args):
     eg.add('ac_kwargs:activation', eval(args.act), '')
     eg.add('custom_h', args.custom_h)
     eg.add('do_checkpoint_eval', args.do_checkpoint_eval)
+    eg.add('env_name', args.env_name)
 
     if args.algo == "ppo":
         eg.run(ppo)

@@ -1,6 +1,7 @@
 import numpy as np
 import tensorflow as tf
 import gym
+import flexibility
 import time
 import spinup.algos.ppo.core as core
 from spinup.utils.logx import EpochLogger
@@ -98,7 +99,8 @@ with early stopping based on approximate KL
 def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
         steps_per_epoch=4000, epochs=50, gamma=0.99, clip_ratio=0.2, pi_lr=3e-4,
         vf_lr=1e-3, train_pi_iters=80, train_v_iters=80, lam=0.97, max_ep_len=1000,
-        target_kl=0.01, logger_kwargs=dict(), save_freq=10, custom_h=None, do_checkpoint_eval=False):
+        target_kl=0.01, logger_kwargs=dict(), save_freq=10, custom_h=None,
+        do_checkpoint_eval=False, env_name=None):
     """
 
     Args:
@@ -306,7 +308,7 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
             logger.save_state({'env': env}, epoch)
 
             # Evaluate and save best model
-            if do_checkpoint_eval:
+            if do_checkpoint_eval and epoch > 0:
                 # below is a hack. best model related stuff is saved at itr 999999, therefore, simple_save999999.
                 # Doing this way, I can use test_policy and plot directly to test the best models.
                 # saved best models includes:
@@ -314,25 +316,27 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
                 # 2) the best rl model with parameters
                 # 3) a pickle file "best_eval_performance_n_structure" storing best_performance, best_structure and epoch
                 # note that 1) and 2) are spinningup defaults, and 3) is a custom save
-                eval_logger = EpochLogger(**dict(
-                    exp_name=logger_kwargs['exp_name'],
-                    output_dir=os.path.join(logger.output_dir, "simple_save999999")))
-
                 best_eval_AverageEpRet, best_eval_StdEpRet = eval_and_save_best_model(
-                    best_eval_AverageEpRet, best_eval_StdEpRet,
-                    eval_logger=eval_logger,
+                    best_eval_AverageEpRet,
+                    best_eval_StdEpRet,
+                    # a new logger is created and passed in so that the new logger can leverage the directory
+                    # structure without messing up the logger in the training loop
+                    eval_logger=EpochLogger(**dict(
+                        exp_name=logger_kwargs['exp_name'],
+                        output_dir=os.path.join(logger.output_dir, "simple_save999999"))),
+
                     train_logger=logger,
                     tb_logger=tb_logger,
                     epoch=epoch,
-                    env=env,
-                    get_action=lambda x: sess.run(pi, feed_dict={x_ph: x[None, :]})[0]
-                )
+                    # the env_name is passed in so that to create an env when and where it is needed. This is to
+                    # logx.save_state() error where an env pointer cannot be pickled
+                    env_name=env_name,
+                    get_action=lambda x: sess.run(pi, feed_dict={x_ph: x[None, :]})[0])
 
         # Perform PPO update!
         update()
 
         # # # Log into tensorboard
-        # log_to_tb(tb_logger, logger, epoch)
         log_key_to_tb(tb_logger, logger, epoch, key="EpRet", with_min_and_max=True)
         log_key_to_tb(tb_logger, logger, epoch, key="EpLen", with_min_and_max=False)
         log_key_to_tb(tb_logger, logger, epoch, key="VVals", with_min_and_max=True)

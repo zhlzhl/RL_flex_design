@@ -3,6 +3,8 @@ from spinup.utils.mpi_tools import mpi_statistics_scalar
 import time
 import os
 import pickle
+import gym
+import flexibility
 
 import json
 
@@ -56,20 +58,18 @@ def get_stats(logger, key, with_min_and_max=True):
         return stats[0], None, None, None
 
 
-def save_best_eval(best_performance, best_structure, epoch, log_dir):
+def save_best_eval(best_performance, best_structure, epoch, env_name, log_dir):
     pickle_data = (best_performance, best_structure, epoch)
-    with open(os.path.join(log_dir, "best_eval_performance_n_structure.pkl"), 'wb') as f:
+    with open(os.path.join(log_dir, "best_eval_performance_n_structure_{}.pkl".format(env_name)), 'wb') as f:
         pickle.dump(pickle_data, f)
-
-    # json_data = dict(best_performance=best_performance, best_structure=best_structure, epoch=epoch)
-    # with open(os.path.join(log_dir, "best_eval_performance_n_structure.json"), 'w', encoding='utf-8') as f:
-    #     json.dump(json_data, f, ensure_ascii=False, indent=4)
 
 
 # to be used for testing policy during training
-def eval_and_save_best_model(best_eval_AverageEpRet, best_eval_StdEpRet, eval_logger, train_logger, tb_logger, epoch,
-                             env, get_action, render=True):
-    mean, std, _, _ = run_policy_with_custom_logging(env, get_action, logger=eval_logger, tb_logger=tb_logger,
+def eval_and_save_best_model(
+        best_eval_AverageEpRet, best_eval_StdEpRet, eval_logger, train_logger, tb_logger, epoch,
+        env_name, get_action, render=True
+):
+    mean, std, _, _ = run_policy_with_custom_logging(env_name, get_action, logger=eval_logger, tb_logger=tb_logger,
                                                      epoch=epoch, max_ep_len=None, render=True)
 
     if best_eval_AverageEpRet < mean:
@@ -77,7 +77,10 @@ def eval_and_save_best_model(best_eval_AverageEpRet, best_eval_StdEpRet, eval_lo
         if std < best_eval_StdEpRet * 1.05:
             # save the best model so far to simple_save999999. This is a hack to leverage the available codes to save
             # the best model identified by episode 999999
+            env = (lambda: gym.make(env_name))()
             train_logger.save_state({'env': env}, itr=999999)
+
+            del env
 
     if best_eval_StdEpRet > std:
         best_eval_StdEpRet = std
@@ -85,8 +88,9 @@ def eval_and_save_best_model(best_eval_AverageEpRet, best_eval_StdEpRet, eval_lo
     return best_eval_AverageEpRet, best_eval_StdEpRet
 
 
-def run_policy_with_custom_logging(env, get_action, logger, tb_logger, epoch,
+def run_policy_with_custom_logging(env_name, get_action, logger, tb_logger, epoch,
                                    max_ep_len=None, num_episodes=50, render=True):
+    env = (lambda: gym.make(env_name))()
     assert env is not None, \
         "Environment not found!\n\n It looks like the environment wasn't saved, " + \
         "and we can't run the agent in it. :( \n\n Check out the readthedocs " + \
@@ -113,7 +117,7 @@ def run_policy_with_custom_logging(env, get_action, logger, tb_logger, epoch,
             if best_performance < ep_ret:
                 best_performance = ep_ret
                 best_structure = np.squeeze(o).reshape(10, 10)
-                save_best_eval(best_performance, best_structure, epoch, log_dir=logger.output_dir)
+                save_best_eval(best_performance, best_structure, epoch, env_name, log_dir=logger.output_dir)
 
             o, r, d, ep_ret, ep_len = env.reset(), 0, False, 0, 0
             n += 1
@@ -125,5 +129,7 @@ def run_policy_with_custom_logging(env, get_action, logger, tb_logger, epoch,
     logger.log_tabular('EpRet', with_min_and_max=True)
     logger.log_tabular('EpLen', average_only=True)
     logger.dump_tabular()
+
+    del env
 
     return mean, std, min, max
