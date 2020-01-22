@@ -9,21 +9,6 @@ import flexibility
 import json
 
 
-# # to be used for logging to tensorboard
-# def log_to_tb(tb_logger, logger, epoch, eval=False):
-#     log_key_to_tb(tb_logger, logger, epoch, key="EpRet", with_min_and_max=True)
-#     log_key_to_tb(tb_logger, logger, epoch, key="EpLen", with_min_and_max=False)
-#     log_key_to_tb(tb_logger, logger, epoch, key="VVals", with_min_and_max=True)
-#     log_key_to_tb(tb_logger, logger, epoch, key="LossPi", with_min_and_max=False)
-#     log_key_to_tb(tb_logger, logger, epoch, key="LossV", with_min_and_max=False)
-#     log_key_to_tb(tb_logger, logger, epoch, key="DeltaLossPi", with_min_and_max=False)
-#     log_key_to_tb(tb_logger, logger, epoch, key="DeltaLossV", with_min_and_max=False)
-#     log_key_to_tb(tb_logger, logger, epoch, key="Entropy", with_min_and_max=False)
-#     log_key_to_tb(tb_logger, logger, epoch, key="KL", with_min_and_max=False)
-#     log_key_to_tb(tb_logger, logger, epoch, key="ClipFrac", with_min_and_max=False)
-#     log_key_to_tb(tb_logger, logger, epoch, key="StopIter", with_min_and_max=False)
-
-
 # to be used for logging to tensorboard
 def log_key_to_tb(tb_logger, logger, epoch, key, with_min_and_max=False, eval=False):
     mean, std, min, max = get_stats(logger, key=key, with_min_and_max=with_min_and_max)
@@ -80,8 +65,6 @@ def eval_and_save_best_model(
             env = (lambda: gym.make(env_name))()
             train_logger.save_state({'env': env}, itr=999999)
 
-            # close the pyglet window and delete env
-            env.close()
             del env
 
     if best_eval_StdEpRet > std:
@@ -93,6 +76,10 @@ def eval_and_save_best_model(
 def run_policy_with_custom_logging(env_name, get_action, logger, tb_logger, epoch,
                                    max_ep_len=None, num_episodes=50, render=True):
     env = (lambda: gym.make(env_name))()
+
+    n_plant = env.n_plant
+    n_product = env.n_product
+
     assert env is not None, \
         "Environment not found!\n\n It looks like the environment wasn't saved, " + \
         "and we can't run the agent in it. :( \n\n Check out the readthedocs " + \
@@ -118,7 +105,7 @@ def run_policy_with_custom_logging(env_name, get_action, logger, tb_logger, epoc
 
             if best_performance < ep_ret:
                 best_performance = ep_ret
-                best_structure = np.squeeze(o).reshape(10, 10)
+                best_structure = np.squeeze(o).reshape(n_plant, n_product)
                 save_best_eval(best_performance, best_structure, epoch, env_name, log_dir=logger.output_dir)
 
             o, r, d, ep_ret, ep_len = env.reset(), 0, False, 0, 0
