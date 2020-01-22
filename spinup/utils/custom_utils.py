@@ -80,6 +80,8 @@ def eval_and_save_best_model(
             env = (lambda: gym.make(env_name))()
             train_logger.save_state({'env': env}, itr=999999)
 
+            # close the pyglet window and delete env
+            env.close()
             del env
 
     if best_eval_StdEpRet > std:
@@ -130,6 +132,7 @@ def run_policy_with_custom_logging(env_name, get_action, logger, tb_logger, epoc
     logger.log_tabular('EpLen', average_only=True)
     logger.dump_tabular()
 
+    env.close()
     del env
 
     return mean, std, min, max
