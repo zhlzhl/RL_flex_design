@@ -20,6 +20,8 @@ def run_experiment(args):
     eg.add('custom_h', args.custom_h)
     eg.add('do_checkpoint_eval', args.do_checkpoint_eval)
     eg.add('env_name', args.env_name)
+    eg.add('train_pi_iters', args.train_pi_iters)
+    eg.add('train_v_iters', args.train_v_iters)
 
     if args.algo == "ppo":
         eg.run(ppo)
@@ -41,6 +43,8 @@ if __name__ == '__main__':
     parser.add_argument('--custom_h', nargs='+', default=None)
     parser.add_argument('--act', type=str, default="tf.nn.relu")
     parser.add_argument('--do_checkpoint_eval', action='store_true', help="Whether to do evaluation per save frequency")
+    parser.add_argument('--train_pi_iters', type=int, default=80, help="# of iterations per each training step for pi")
+    parser.add_argument('--train_v_iters', type=int, default=80, help="# of iterations per each training step for v")
 
     args = parser.parse_args()
 
