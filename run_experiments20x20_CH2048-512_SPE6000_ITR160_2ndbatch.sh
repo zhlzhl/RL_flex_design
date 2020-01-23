@@ -8,8 +8,10 @@ python -m spinup.run_simple \
     --exp_name Flexibility20x20T"${tarcs[i]}"_PPO  \
     --cpu 8 \
     --epochs 240  \
-    --steps_per_epoch 18000  \
+    --steps_per_epoch 6000  \
     --save_freq 10  \
     --custom_h 2048-512 \
     --act tf.nn.relu  \
+    --train_pi_iters 160  \
+    --train_v_iters 160 \
     --do_checkpoint_eval; done
