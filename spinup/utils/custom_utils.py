@@ -54,8 +54,11 @@ def eval_and_save_best_model(
         best_eval_AverageEpRet, best_eval_StdEpRet, eval_logger, train_logger, tb_logger, epoch,
         env_name, get_action, render=True
 ):
-    mean, std, _, _ = run_policy_with_custom_logging(env_name, get_action, logger=eval_logger, tb_logger=tb_logger,
-                                                     epoch=epoch, max_ep_len=None, render=True)
+    mean, std, _, _, best_performance, best_structure = run_policy_with_custom_logging(env_name, get_action,
+                                                                                       logger=eval_logger,
+                                                                                       tb_logger=tb_logger,
+                                                                                       epoch=epoch, max_ep_len=None,
+                                                                                       render=True)
 
     if best_eval_AverageEpRet < mean:
         best_eval_AverageEpRet = mean
@@ -64,6 +67,9 @@ def eval_and_save_best_model(
             # the best model identified by episode 999999
             env = (lambda: gym.make(env_name))()
             train_logger.save_state({'env': env}, itr=999999)
+
+            # save the best_performance and best_structure across the different runs during evaluation
+            save_best_eval(best_performance, best_structure, epoch, env_name, log_dir=eval_logger.output_dir)
 
             del env
 
@@ -74,7 +80,7 @@ def eval_and_save_best_model(
 
 
 def run_policy_with_custom_logging(env_name, get_action, logger, tb_logger, epoch,
-                                   max_ep_len=None, num_episodes=50, render=True):
+                                   max_ep_len=None, num_episodes=100, render=True):
     env = (lambda: gym.make(env_name))()
 
     n_plant = env.n_plant
@@ -106,7 +112,7 @@ def run_policy_with_custom_logging(env_name, get_action, logger, tb_logger, epoc
             if best_performance < ep_ret:
                 best_performance = ep_ret
                 best_structure = np.squeeze(o).reshape(n_plant, n_product)
-                save_best_eval(best_performance, best_structure, epoch, env_name, log_dir=logger.output_dir)
+                # save_best_eval(best_performance, best_structure, epoch, env_name, log_dir=logger.output_dir)
 
             o, r, d, ep_ret, ep_len = env.reset(), 0, False, 0, 0
             n += 1
@@ -122,4 +128,4 @@ def run_policy_with_custom_logging(env_name, get_action, logger, tb_logger, epoc
     env.close()
     del env
 
-    return mean, std, min, max
+    return mean, std, min, max, best_performance, best_structure
