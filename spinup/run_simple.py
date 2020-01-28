@@ -20,10 +20,10 @@ def run_experiment(args):
     eg.add('custom_h', args.custom_h)
     eg.add('do_checkpoint_eval', args.do_checkpoint_eval)
     eg.add('env_name', args.env_name)
-    eg.add('train_pi_iters', args.train_pi_iters)
     eg.add('train_v_iters', args.train_v_iters)
 
     if args.algo == "ppo":
+        eg.add('train_pi_iters', args.train_pi_iters)
         eg.run(ppo)
     elif args.algo == "vpg":
         eg.run(vpg)
