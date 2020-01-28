@@ -6,6 +6,8 @@ import spinup.algos.vpg.core as core
 from spinup.utils.logx import EpochLogger
 from spinup.utils.mpi_tf import MpiAdamOptimizer, sync_all_params
 from spinup.utils.mpi_tools import mpi_fork, mpi_avg, proc_id, mpi_statistics_scalar, num_procs
+from spinup.utils.tensorboard_logging import Logger
+from spinup.utils.custom_utils import *
 
 
 class VPGBuffer:
@@ -59,7 +61,7 @@ class VPGBuffer:
         vals = np.append(self.val_buf[path_slice], last_val)
         
         # the next two lines implement GAE-Lambda advantage calculation
-        deltas = rews[:-1] + self.gamma * vals[1:] - vals[:-1]
+        deltas = rews[:-1] + self.gamma * vals[1:] - vals[:-1]  # TD residual -- #6 of equation (1) in GAE paper
         self.adv_buf[path_slice] = core.discount_cumsum(deltas, self.gamma * self.lam)
         
         # the next line computes rewards-to-go, to be targets for the value function
@@ -92,7 +94,8 @@ Vanilla Policy Gradient
 def vpg(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0, 
         steps_per_epoch=4000, epochs=50, gamma=0.99, pi_lr=3e-4,
         vf_lr=1e-3, train_v_iters=80, lam=0.97, max_ep_len=1000,
-        logger_kwargs=dict(), save_freq=10):
+        logger_kwargs=dict(), save_freq=10, custom_h=None,
+        do_checkpoint_eval=False, env_name=None):
     """
 
     Args:
@@ -154,6 +157,11 @@ def vpg(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
     logger = EpochLogger(**logger_kwargs)
     logger.save_config(locals())
 
+    # create logger for tensorboard
+    tb_logdir = "{}/tb_logs/".format(logger.output_dir)
+    tb_logger = Logger(log_dir=tb_logdir)
+
+
     seed += 10000 * proc_id()
     tf.set_random_seed(seed)
     np.random.seed(seed)
@@ -164,6 +172,12 @@ def vpg(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
     
     # Share information about action space with policy architecture
     ac_kwargs['action_space'] = env.action_space
+
+
+    if custom_h is not None:
+        hidden_layers_str_list = custom_h.split('-')
+        hidden_layers_int_list = [int(h) for h in hidden_layers_str_list]
+        ac_kwargs['hidden_sizes'] = hidden_layers_int_list
 
     # Inputs to computation graph
     x_ph, a_ph = core.placeholders_from_spaces(env.observation_space, env.action_space)
@@ -204,14 +218,18 @@ def vpg(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
     config.gpu_options.allow_growth = True
     sess = tf.Session(config=config)
     sess.run(tf.global_variables_initializer())
-    # sess = tf.Session()
-    # sess.run(tf.global_variables_initializer())
+    # log tf graph
+    tf.summary.FileWriter(tb_logdir, sess.graph)
 
     # Sync params across processes
     sess.run(sync_all_params())
 
     # Setup model saving
     logger.setup_tf_saver(sess, inputs={'x': x_ph}, outputs={'pi': pi, 'v': v})
+
+    # for saving the best models and performances during train and evaluate
+    best_eval_AverageEpRet = 0.0
+    best_eval_StdEpRet = 1.0e20
 
     def update():
         inputs = {k:v for k,v in zip(all_phs, buf.get())}
@@ -264,8 +282,47 @@ def vpg(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
             # Save a new model every save_freq and at the last epoch. Do not overwrite the previous save.
             logger.save_state({'env': env}, epoch)
 
+            # Evaluate and save best model
+            if do_checkpoint_eval and epoch > 0:
+                # below is a hack. best model related stuff is saved at itr 999999, therefore, simple_save999999.
+                # Doing this way, I can use test_policy and plot directly to test the best models.
+                # saved best models includes:
+                # 1) a copy of the env
+                # 2) the best rl model with parameters
+                # 3) a pickle file "best_eval_performance_n_structure" storing best_performance, best_structure and epoch
+                # note that 1) and 2) are spinningup defaults, and 3) is a custom save
+                best_eval_AverageEpRet, best_eval_StdEpRet = eval_and_save_best_model(
+                    best_eval_AverageEpRet,
+                    best_eval_StdEpRet,
+                    # a new logger is created and passed in so that the new logger can leverage the directory
+                    # structure without messing up the logger in the training loop
+                    eval_logger=EpochLogger(**dict(
+                        exp_name=logger_kwargs['exp_name'],
+                        output_dir=os.path.join(logger.output_dir, "simple_save999999"))),
+
+                    train_logger=logger,
+                    tb_logger=tb_logger,
+                    epoch=epoch,
+                    # the env_name is passed in so that to create an env when and where it is needed. This is to
+                    # logx.save_state() error where an env pointer cannot be pickled
+                    env_name=env_name,
+                    get_action=lambda x: sess.run(pi, feed_dict={x_ph: x[None, :]})[0])
+
         # Perform VPG update!
         update()
+
+        # # # Log into tensorboard
+        log_key_to_tb(tb_logger, logger, epoch, key="EpRet", with_min_and_max=True)
+        log_key_to_tb(tb_logger, logger, epoch, key="EpLen", with_min_and_max=False)
+        log_key_to_tb(tb_logger, logger, epoch, key="VVals", with_min_and_max=True)
+        log_key_to_tb(tb_logger, logger, epoch, key="LossPi", with_min_and_max=False)
+        log_key_to_tb(tb_logger, logger, epoch, key="LossV", with_min_and_max=False)
+        log_key_to_tb(tb_logger, logger, epoch, key="DeltaLossPi", with_min_and_max=False)
+        log_key_to_tb(tb_logger, logger, epoch, key="DeltaLossV", with_min_and_max=False)
+        log_key_to_tb(tb_logger, logger, epoch, key="Entropy", with_min_and_max=False)
+        log_key_to_tb(tb_logger, logger, epoch, key="KL", with_min_and_max=False)
+        tb_logger.log_scalar(tag="TotalEnvInteracts", value=(epoch + 1) * steps_per_epoch, step=epoch)
+        tb_logger.log_scalar(tag="Time", value=time.time() - start_time, step=epoch)
 
         # Log info about epoch
         logger.log_tabular('Epoch', epoch)
