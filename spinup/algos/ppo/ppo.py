@@ -251,9 +251,6 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
     # for saving the best models and performances during train and evaluate
     best_eval_AverageEpRet = 0.0
     best_eval_StdEpRet = 1.0e20
-    # to keep track of the best testing performance during evaluation. This decides which structure is the best
-    # structure to be saved in the pickle file during training and evaluating.
-    best_eval_performance = 0.0
 
     def update():
         inputs = {k: v for k, v in zip(all_phs, buf.get())}
