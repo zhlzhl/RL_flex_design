@@ -28,10 +28,12 @@ class PPOBuffer:
         self.ret_buf = np.zeros(size, dtype=np.float32)
         self.val_buf = np.zeros(size, dtype=np.float32)
         self.logp_buf = np.zeros(size, dtype=np.float32)
+        self.temperature_buf = np.zeros(size, dtype=np.float32)
+
         self.gamma, self.lam = gamma, lam
         self.ptr, self.path_start_idx, self.max_size = 0, 0, size
 
-    def store(self, obs, act, rew, val, logp):
+    def store(self, obs, act, rew, val, logp, temperature):
         """
         Append one timestep of agent-environment interaction to the buffer.
         """
@@ -41,6 +43,7 @@ class PPOBuffer:
         self.rew_buf[self.ptr] = rew
         self.val_buf[self.ptr] = val
         self.logp_buf[self.ptr] = logp
+        self.temperature_buf[self.ptr] = temperature
         self.ptr += 1
 
     def finish_path(self, last_val=0):
@@ -84,7 +87,7 @@ class PPOBuffer:
         adv_mean, adv_std = mpi_statistics_scalar(self.adv_buf)
         self.adv_buf = (self.adv_buf - adv_mean) / adv_std
         return [self.obs_buf, self.act_buf, self.adv_buf,
-                self.ret_buf, self.logp_buf]
+                self.ret_buf, self.logp_buf, self.temperature_buf[0]]
 
 
 """
@@ -100,7 +103,7 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
         steps_per_epoch=4000, epochs=50, gamma=0.99, clip_ratio=0.2, pi_lr=3e-4,
         vf_lr=1e-3, train_pi_iters=80, train_v_iters=80, lam=0.97, max_ep_len=1000,
         target_kl=0.01, logger_kwargs=dict(), save_freq=10, custom_h=None,
-        do_checkpoint_eval=False, env_name=None):
+        do_checkpoint_eval=False, env_name=None, eval_temp=1.0, train_starting_temp=1.0):
     """
 
     Args:
@@ -200,11 +203,14 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
     x_ph, a_ph = core.placeholders_from_spaces(env.observation_space, env.action_space)
     adv_ph, ret_ph, logp_old_ph = core.placeholders(None, None, None)
 
+    temperature_ph = tf.placeholder(tf.float32, shape=(), name="init")
+
+
     # Main outputs from computation graph
-    pi, logp, logp_pi, v = actor_critic(x_ph, a_ph, **ac_kwargs)
+    pi, logp, logp_pi, v = actor_critic(x_ph, a_ph, temperature_ph, **ac_kwargs)
 
     # Need all placeholders in *this* order later (to zip with data from buffer)
-    all_phs = [x_ph, a_ph, adv_ph, ret_ph, logp_old_ph]
+    all_phs = [x_ph, a_ph, adv_ph, ret_ph, logp_old_ph, temperature_ph]
 
     # Every step, get: action, value, and logprob
     get_action_ops = [pi, v, logp_pi]
@@ -277,15 +283,15 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
     start_time = time.time()
     o, r, d, ep_ret, ep_len = env.reset(), 0, False, 0, 0
 
-
-
     # Main loop: collect experience in env and update/log each epoch
     for epoch in range(epochs):
+        current_temp = _get_current_temperature(epoch, epochs, train_starting_temp)
         for t in range(local_steps_per_epoch):
-            a, v_t, logp_t = sess.run(get_action_ops, feed_dict={x_ph: o.reshape(1, -1)})
+            a, v_t, logp_t = sess.run(get_action_ops, feed_dict={x_ph: o.reshape(1, -1),
+                                                                 temperature_ph: current_temp})
 
             # save and log
-            buf.store(o, a, r, v_t, logp_t)
+            buf.store(o, a, r, v_t, logp_t, current_temp)
             logger.store(VVals=v_t)
 
             o, r, d, _ = env.step(a[0])
@@ -297,7 +303,8 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
                 if not (terminal):
                     print('Warning: trajectory cut off by epoch at %d steps.' % ep_len)
                 # if trajectory didn't reach terminal state, bootstrap value target
-                last_val = r if d else sess.run(v, feed_dict={x_ph: o.reshape(1, -1)})
+                last_val = r if d else sess.run(v, feed_dict={x_ph: o.reshape(1, -1),
+                                                              temperature_ph: current_temp})
                 buf.finish_path(last_val)
                 if terminal:
                     # only save EpRet / EpLen if trajectory finished
@@ -333,7 +340,10 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
                     # the env_name is passed in so that to create an env when and where it is needed. This is to
                     # logx.save_state() error where an env pointer cannot be pickled
                     env_name=env_name,
-                    get_action=lambda x: sess.run(pi, feed_dict={x_ph: x[None, :]})[0])
+                    get_action=lambda x: sess.run(pi, feed_dict={x_ph: x[None, :],
+                                                                 temperature_ph: eval_temp})[0],
+                    n_sample=5000  # number of samples to draw when simulate demand
+                )
 
         # Perform PPO update!
         update()
@@ -352,6 +362,7 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
         log_key_to_tb(tb_logger, logger, epoch, key="StopIter", with_min_and_max=False)
         tb_logger.log_scalar(tag="TotalEnvInteracts", value=(epoch + 1) * steps_per_epoch, step=epoch)
         tb_logger.log_scalar(tag="Time", value=time.time() - start_time, step=epoch)
+        tb_logger.log_scalar(tag="epoch_temp", value=current_temp, step=epoch)
 
         # Log info about epoch
         logger.log_tabular('Epoch', epoch)
@@ -368,7 +379,23 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
         logger.log_tabular('ClipFrac', average_only=True)
         logger.log_tabular('StopIter', average_only=True)
         logger.log_tabular('Time', time.time() - start_time)
+        logger.log_tabular('EpochTemp', current_temp)
         logger.dump_tabular()
+
+
+def _get_current_temperature(epoch, epochs, train_starting_temp):
+    current_temp = train_starting_temp
+
+    if train_starting_temp > 1.0:
+        temp_gap = train_starting_temp - 1.0
+        exploring_epochs = np.floor(epochs / 3.0 * 2)
+        temp_delta = temp_gap / exploring_epochs
+        if epoch < exploring_epochs:
+            current_temp = train_starting_temp - temp_delta * epoch
+        else:
+            current_temp = 1.0
+
+    return current_temp
 
 
 if __name__ == '__main__':

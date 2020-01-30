@@ -77,13 +77,21 @@ Policies
 """
 
 
-def mlp_categorical_policy(x, a, hidden_sizes, activation, output_activation, action_space):
+def mlp_categorical_policy(x, a, temperature, hidden_sizes, activation, output_activation, action_space):
     act_dim = action_space.n
     logits = mlp(x, list(hidden_sizes) + [act_dim], activation, None)
     logp_all = tf.nn.log_softmax(logits)  # log probability of all actions
-    pi = tf.squeeze(tf.multinomial(logits, 1), axis=1)  # the chosen action
+
+    # added for temperature
+    scaled_logits = logits / temperature
+    pi = tf.squeeze(tf.multinomial(scaled_logits, 1), axis=1)  # the chosen action with given temperature
+
+    # pi = tf.squeeze(tf.multinomial(logits, 1), axis=1)  # the chosen action
     logp = tf.reduce_sum(tf.one_hot(a, depth=act_dim) * logp_all, axis=1)  # log probability of given action a
     logp_pi = tf.reduce_sum(tf.one_hot(pi, depth=act_dim) * logp_all, axis=1)  # log probability of the chosen action pi
+
+
+
     return pi, logp, logp_pi
 
 
@@ -103,7 +111,7 @@ Actor-Critics
 """
 
 
-def mlp_actor_critic(x, a, hidden_sizes=(64, 64), activation=tf.tanh,
+def mlp_actor_critic(x, a, temperature, hidden_sizes=(64, 64), activation=tf.tanh,
                      output_activation=None, policy=None, action_space=None):
     # default policy builder depends on action space
     if policy is None and isinstance(action_space, Box):
@@ -112,7 +120,7 @@ def mlp_actor_critic(x, a, hidden_sizes=(64, 64), activation=tf.tanh,
         policy = mlp_categorical_policy
 
     with tf.variable_scope('pi'):
-        pi, logp, logp_pi = policy(x, a, hidden_sizes, activation, output_activation, action_space)
+        pi, logp, logp_pi = policy(x, a, temperature, hidden_sizes, activation, output_activation, action_space)
     with tf.variable_scope('v'):
         v = tf.squeeze(mlp(x, list(hidden_sizes) + [1], activation, None), axis=1)
     return pi, logp, logp_pi, v

@@ -6,7 +6,7 @@ import tensorflow as tf
 from spinup import EpochLogger
 from spinup.utils.logx import restore_tf_graph
 
-def load_policy(fpath, itr='last', deterministic=False):
+def load_policy(fpath, itr='last', deterministic=False, eval_temp=1.0):
 
     # handle which epoch to load from
     if itr=='last':
@@ -29,7 +29,8 @@ def load_policy(fpath, itr='last', deterministic=False):
         action_op = model['pi']
 
     # make function for producing an action given a single state
-    get_action = lambda x : sess.run(action_op, feed_dict={model['x']: x[None,:]})[0]
+    get_action = lambda x : sess.run(action_op, feed_dict={model['x']: x[None,:],
+                                                           model['temperature']: eval_temp})[0]
 
     # try to load environment from save
     # (sometimes this will fail because the environment could not be pickled)
@@ -81,8 +82,10 @@ if __name__ == '__main__':
     parser.add_argument('--norender', '-nr', action='store_true')
     parser.add_argument('--itr', '-i', type=int, default=-1)
     parser.add_argument('--deterministic', '-d', action='store_true')
+    parser.add_argument('eval_temp', type=float, default=1.0)
     args = parser.parse_args()
     env, get_action = load_policy(args.fpath, 
                                   args.itr if args.itr >=0 else 'last',
-                                  args.deterministic)
+                                  args.deterministic,
+                                  args.eval_temp)
     run_policy(env, get_action, args.len, args.episodes, not(args.norender))

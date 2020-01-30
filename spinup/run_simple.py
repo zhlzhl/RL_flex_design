@@ -21,6 +21,10 @@ def run_experiment(args):
     eg.add('do_checkpoint_eval', args.do_checkpoint_eval)
     eg.add('env_name', args.env_name)
     eg.add('train_v_iters', args.train_v_iters)
+    eg.add('eval_temp', args.eval_temp)
+    eg.add('train_starting_temp', args.train_starting_temp)
+
+
 
     if args.algo == "ppo":
         eg.add('train_pi_iters', args.train_pi_iters)
@@ -45,6 +49,11 @@ if __name__ == '__main__':
     parser.add_argument('--do_checkpoint_eval', action='store_true', help="Whether to do evaluation per save frequency")
     parser.add_argument('--train_pi_iters', type=int, default=80, help="# of iterations per each training step for pi")
     parser.add_argument('--train_v_iters', type=int, default=80, help="# of iterations per each training step for v")
+    parser.add_argument("--eval_temp", type=float, default=1.0,
+                        help="temperature used during evaluation. ")
+    parser.add_argument("--train_starting_temp", type=float, default=1.0,
+                        help="starting temperature used during training. If larger than 1.0, training temperature "
+                             "decreases to 1.0 in the first 1/3 of epochs. ")
 
     args = parser.parse_args()
 
