@@ -52,13 +52,15 @@ def save_best_eval(best_performance, best_structure, epoch, env_name, log_dir):
 # to be used for testing policy during training
 def eval_and_save_best_model(
         best_eval_AverageEpRet, best_eval_StdEpRet, eval_logger, train_logger, tb_logger, epoch,
-        env_name, get_action, render=True
+        env_name, get_action, render=True, n_sample=5000
 ):
     mean, std, _, _, best_performance, best_structure = run_policy_with_custom_logging(env_name, get_action,
                                                                                        logger=eval_logger,
                                                                                        tb_logger=tb_logger,
-                                                                                       epoch=epoch, max_ep_len=None,
-                                                                                       render=True)
+                                                                                       epoch=epoch,
+                                                                                       max_ep_len=None,
+                                                                                       render=True,
+                                                                                       n_sample=n_sample)
 
     if best_eval_AverageEpRet < mean:
         best_eval_AverageEpRet = mean
@@ -80,8 +82,21 @@ def eval_and_save_best_model(
 
 
 def run_policy_with_custom_logging(env_name, get_action, logger, tb_logger, epoch,
-                                   max_ep_len=None, num_episodes=100, render=True):
-    env = (lambda: gym.make(env_name))()
+                                   max_ep_len=None, num_episodes=3, render=True, n_sample=5000):
+    new_env_name = env_name
+
+    if "_SP" in env_name and "-v0" in env_name:
+        n_sample_training = env_name.split("_SP")[1].split("-v0")[0]
+        n_sample_training = int(n_sample_training)
+        if n_sample_training != n_sample:
+            if n_sample == 5000:
+                new_env_name = env_name.split("_SP")[0] + "-v0"
+                print("using new env {} to evaluate performance".format(new_env_name))
+            else:
+                raise NotImplementedError("The eval env {} with n_sample = {} is not implemented"
+                                          .format(env_name, n_sample))
+
+    env = (lambda: gym.make(new_env_name))()
 
     n_plant = env.n_plant
     n_product = env.n_product
