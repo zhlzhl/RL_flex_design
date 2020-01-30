@@ -20,6 +20,7 @@ def run_experiment(args):
     eg.add('custom_h', args.custom_h)
     eg.add('do_checkpoint_eval', args.do_checkpoint_eval)
     eg.add('env_name', args.env_name)
+    eg.add('n_sample', args.n_sample)
     eg.add('train_v_iters', args.train_v_iters)
     eg.add('eval_temp', args.eval_temp)
     eg.add('train_starting_temp', args.train_starting_temp)
@@ -39,10 +40,14 @@ if __name__ == '__main__':
     parser.add_argument("--cpu", type=int, default=1)
     parser.add_argument("--epochs", type=int, default=5)
     parser.add_argument("--num_runs", type=int, default=1)
-    parser.add_argument('--steps_per_epoch', type=int, default=5000)
-    parser.add_argument('--save_freq', type=int, default=100)
+    parser.add_argument('--steps_per_epoch', type=int, default=6000)
+    parser.add_argument('--save_freq', type=int, default=5000)
     parser.add_argument('--env_name', type=str, default="Flexibility-v0")
     parser.add_argument('--exp_name', type=str, default='Flexibility-PPO')
+    parser.add_argument('--n_sample', type=int, default=100,
+                        help="number of samples of demand when evaluating structure performance for the first half of "
+                             "training epochs. n_sample = 5000 is used for the 2nd half of the epochs.")
+
     # added custom_h to specify hidden layers with different sizes, e.g., "1024-128".
     parser.add_argument('--custom_h', nargs='+', default=None)
     parser.add_argument('--act', type=str, default="tf.nn.relu")
