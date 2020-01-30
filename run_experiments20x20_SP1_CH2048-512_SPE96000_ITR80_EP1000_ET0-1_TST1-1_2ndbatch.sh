@@ -17,4 +17,5 @@ python -m spinup.run_simple \
     --train_v_iters 80 \
     --eval_temp 0.1 \
     --train_starting_temp 1.1 \
+    --n_sample 50 \
     --do_checkpoint_eval; done
