@@ -14,6 +14,6 @@ python -m spinup.run_simple \
     --act tf.nn.relu  \
     --train_pi_iters 80  \
     --train_v_iters 80 \
-    --eval_temp 0.5 \
-    --train_starting_temp 2.0 \
+    --eval_temp 0.1 \
+    --train_starting_temp 1.3 \
     --do_checkpoint_eval; done
