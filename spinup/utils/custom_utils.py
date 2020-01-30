@@ -82,7 +82,7 @@ def eval_and_save_best_model(
 
 
 def run_policy_with_custom_logging(env_name, get_action, logger, tb_logger, epoch,
-                                   max_ep_len=None, num_episodes=3, render=True, n_sample=5000):
+                                   max_ep_len=None, num_episodes=100, render=True, n_sample=5000):
     new_env_name = env_name
 
     if "_SP" in env_name and "-v0" in env_name:
