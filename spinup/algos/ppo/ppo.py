@@ -393,6 +393,7 @@ def _get_current_temperature(epoch, epochs, train_starting_temp):
         temp_delta = temp_gap / exploring_epochs
         if epoch < exploring_epochs:
             current_temp = train_starting_temp - temp_delta * epoch
+            print('epoch: {} | current_temp: {}'.format(epoch, current_temp))
         else:
             current_temp = 1.0
 
