@@ -102,7 +102,7 @@ with early stopping based on approximate KL
 def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
         steps_per_epoch=4000, epochs=50, gamma=0.99, clip_ratio=0.2, pi_lr=3e-4,
         vf_lr=1e-3, train_pi_iters=80, train_v_iters=80, lam=0.97, max_ep_len=1000,
-        target_kl=0.01, logger_kwargs=dict(), save_freq=10, custom_h=None, n_sample=5000,
+        target_kl=0.01, logger_kwargs=dict(), save_freq=10, custom_h=None, n_sample=5000, eval_episodes=50,
         do_checkpoint_eval=False, env_name=None, eval_temp=1.0, train_starting_temp=1.0):
     """
 
@@ -252,7 +252,7 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
     sess.run(sync_all_params())
 
     # Setup model saving
-    logger.setup_tf_saver(sess, inputs={'x': x_ph}, outputs={'pi': pi, 'v': v})
+    logger.setup_tf_saver(sess, inputs={'x': x_ph, 'temperature': temperature_ph}, outputs={'pi': pi, 'v': v})
 
     # for saving the best models and performances during train and evaluate
     best_eval_AverageEpRet = 0.0
@@ -342,7 +342,8 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
                     env_name=env_name,
                     get_action=lambda x: sess.run(pi, feed_dict={x_ph: x[None, :],
                                                                  temperature_ph: eval_temp})[0],
-                    n_sample=n_sample if epoch < epochs/2 else 5000  # number of samples to draw when simulate demand
+                    n_sample=n_sample if epoch < epochs/2 else 5000,  # number of samples to draw when simulate demand
+                    num_episodes=eval_episodes
                 )
 
         # Perform PPO update!

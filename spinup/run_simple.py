@@ -21,6 +21,7 @@ def run_experiment(args):
     eg.add('do_checkpoint_eval', args.do_checkpoint_eval)
     eg.add('env_name', args.env_name)
     eg.add('n_sample', args.n_sample)
+    eg.add('eval_episodes', args.eval_episodes)
     eg.add('train_v_iters', args.train_v_iters)
     eg.add('eval_temp', args.eval_temp)
     eg.add('train_starting_temp', args.train_starting_temp)
@@ -47,6 +48,8 @@ if __name__ == '__main__':
     parser.add_argument('--n_sample', type=int, default=10,
                         help="number of samples of demand when evaluating structure performance for the first half of "
                              "training epochs. n_sample = 5000 is used for the 2nd half of the epochs.")
+    parser.add_argument('--eval_episodes', type=int, default=50,
+                        help="number of episodes to run during evaluation.")
 
     # added custom_h to specify hidden layers with different sizes, e.g., "1024-128".
     parser.add_argument('--custom_h', nargs='+', default=None)

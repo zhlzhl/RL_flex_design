@@ -52,15 +52,16 @@ def save_best_eval(best_performance, best_structure, epoch, env_name, log_dir):
 # to be used for testing policy during training
 def eval_and_save_best_model(
         best_eval_AverageEpRet, best_eval_StdEpRet, eval_logger, train_logger, tb_logger, epoch,
-        env_name, get_action, render=True, n_sample=5000
+        env_name, get_action, render=True, n_sample=5000, num_episodes=50
 ):
     mean, std, _, _, best_performance, best_structure = run_policy_with_custom_logging(env_name, get_action,
                                                                                        logger=eval_logger,
                                                                                        tb_logger=tb_logger,
                                                                                        epoch=epoch,
-                                                                                       max_ep_len=None,
+                                                                                       max_ep_len=100,
                                                                                        render=True,
-                                                                                       n_sample=n_sample)
+                                                                                       n_sample=n_sample,
+                                                                                       n_episodes=num_episodes)
 
     if best_eval_AverageEpRet < mean:
         best_eval_AverageEpRet = mean
@@ -82,7 +83,7 @@ def eval_and_save_best_model(
 
 
 def run_policy_with_custom_logging(env_name, get_action, logger, tb_logger, epoch,
-                                   max_ep_len=None, num_episodes=50, render=True, n_sample=5000):
+                                   max_ep_len=None, n_episodes=50, render=True, n_sample=5000):
     new_env_name = env_name
 
     if "_SP" in env_name and "-v0" in env_name:
@@ -113,7 +114,7 @@ def run_policy_with_custom_logging(env_name, get_action, logger, tb_logger, epoc
     best_structure = None
 
     o, r, d, ep_ret, ep_len, n = env.reset(), 0, False, 0, 0, 0
-    while n < num_episodes:
+    while n < n_episodes:
         if render:
             env.render()
             # time.sleep(1e-3)
