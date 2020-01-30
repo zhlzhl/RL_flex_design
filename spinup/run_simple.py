@@ -44,7 +44,7 @@ if __name__ == '__main__':
     parser.add_argument('--save_freq', type=int, default=5000)
     parser.add_argument('--env_name', type=str, default="Flexibility-v0")
     parser.add_argument('--exp_name', type=str, default='Flexibility-PPO')
-    parser.add_argument('--n_sample', type=int, default=100,
+    parser.add_argument('--n_sample', type=int, default=10,
                         help="number of samples of demand when evaluating structure performance for the first half of "
                              "training epochs. n_sample = 5000 is used for the 2nd half of the epochs.")
 

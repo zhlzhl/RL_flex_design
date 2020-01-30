@@ -92,7 +92,7 @@ def run_policy_with_custom_logging(env_name, get_action, logger, tb_logger, epoc
             if n_sample == 5000:
                 new_env_name = env_name.split("_SP")[0] + "-v0"
                 print("using new env {} to evaluate performance".format(new_env_name))
-            elif n_sample in {1, 10, 50, 100} & '20x20' in env_name:
+            elif (n_sample in {1, 10, 50, 100}) and ('20x20' in env_name):
                 new_env_name = env_name.split("_SP")[0] + "_SP{}-v0".format(n_sample)
                 print("using new env {} to evaluate performance".format(new_env_name))
             else:
