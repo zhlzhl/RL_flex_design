@@ -6,7 +6,7 @@ for (( i=0; i<${#tarcs[@]}; i++ )); do
 python -m spinup.run_simple \
     --algo ppo  \
     --env Flexibility20x20T"${tarcs[i]}"_SP1-v0 \
-    --exp_name F20x20T"${tarcs[i]}"_SP1_PPO_CH2048-512_SPE12000_ITR80_EP2100_ET0-5_TST2  \
+    --exp_name F20x20T"${tarcs[i]}"_SP1_PPO_CH2048-512_SPE96000_ITR80_EP1000_ET0-1_TST1-1  \
     --cpu 8 \
     --epochs 1000  \
     --steps_per_epoch 96000  \
