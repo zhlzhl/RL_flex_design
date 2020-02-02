@@ -1,6 +1,6 @@
 #!/bin/bash
 
-tarcs=(20 24 28 32 36 40)
+tarcs=(44 48 52 56 60)
 for (( i=0; i<${#tarcs[@]}; i++ )); do
 python -m spinup.run_simple \
     --algo ppo  \
@@ -14,6 +14,6 @@ python -m spinup.run_simple \
     --act tf.nn.relu  \
     --train_pi_iters 80  \
     --train_v_iters 80 \
-    --eval_temp 0.1 \
+    --eval_temp 0.2 \
     --n_sample 50 \
     --do_checkpoint_eval; done
