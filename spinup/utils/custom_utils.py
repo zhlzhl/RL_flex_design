@@ -1,5 +1,6 @@
 import numpy as np
 from spinup.utils.mpi_tools import mpi_statistics_scalar
+from spinup.utils.FlexibilityEnv import FlexibilityEnv
 import time
 import os
 import pickle
@@ -73,7 +74,8 @@ def eval_and_save_best_model(
             # the best model identified by episode 999999
             # env = (lambda: gym.make(env_name))()
             # train_logger.save_state({'env': env}, itr=999999)
-            eval_env = (lambda: gym.make(eval_env_name))()
+            # eval_env = (lambda: gym.make(eval_env_name))()
+            eval_env = get_custom_env_fn(eval_env_name)()
             train_logger.save_state({'env': eval_env}, itr=999999)
 
             # save the best_performance and best_structure across the different runs during evaluation
@@ -107,9 +109,46 @@ def get_new_env_name(env_name, n_sample):
     return new_env_name
 
 
+def _parse_attributes(env_name):
+    # example env_name Flexibility20x20T40_SP50-v0, Flexibility10x10T15-v0
+
+    env_name = env_name.split('-')[0]
+
+    if '_SP' in env_name:
+        splits = env_name.split('_SP')
+        n_sample = int(splits[1])
+        env_name = splits[0]  # got Flexibility20x20T40
+    else:
+        n_sample = 5000  # default value
+
+    env_name = env_name[11:]  # removed 'Flexibility' to get 20x20T40
+
+    splits = env_name.split('x')
+    n_plant = int(splits[0])
+
+    splits = splits[1].split('T')  # got 20T40
+    n_product = int(splits[0])
+    target_arcs = int(splits[1])
+
+    return n_plant, n_product, target_arcs, n_sample
+
+
+def get_custom_env_fn(env_name):
+    n_plant, n_product, target_arcs, n_sample = _parse_attributes(env_name)
+
+    class CustomFlexibilityEnv(FlexibilityEnv):
+        def __init__(self):
+            super().__init__(n_plant=n_plant, n_product=n_product,
+                             target_arcs=target_arcs, n_sample=n_sample)
+            print('using custom env: {} | n_plant: {} | n_product: {} | target_arcs: {} | n_sample: {}'
+                  .format(env_name, n_plant, n_product, target_arcs, n_sample))
+
+    return CustomFlexibilityEnv
+
 def run_policy_with_custom_logging(env_name, get_action, logger, tb_logger, epoch,
                                    max_ep_len=None, n_episodes=50, render=True, n_sample=5000):
-    env = (lambda: gym.make(env_name))()
+    # env = (lambda: gym.make(env_name))()
+    env = get_custom_env_fn(env_name)()
 
     n_plant = env.n_plant
     n_product = env.n_product
