@@ -61,8 +61,8 @@ class VPGBuffer:
         vals = np.append(self.val_buf[path_slice], last_val)
         
         # the next two lines implement GAE-Lambda advantage calculation
-        deltas = rews[:-1] + self.gamma * vals[1:] - vals[:-1]  # TD residual -- #6 of equation (1) in GAE paper
-        self.adv_buf[path_slice] = core.discount_cumsum(deltas, self.gamma * self.lam)
+        deltas = rews[:-1] + self.gamma * vals[1:] - vals[:-1]  # TD residual -- equation (11) in GAE paper
+        self.adv_buf[path_slice] = core.discount_cumsum(deltas, self.gamma * self.lam)  # eq (14) with gamma=gamma * lam
         
         # the next line computes rewards-to-go, to be targets for the value function
         self.ret_buf[path_slice] = core.discount_cumsum(rews, self.gamma)[:-1]

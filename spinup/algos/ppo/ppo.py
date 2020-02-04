@@ -67,7 +67,7 @@ class PPOBuffer:
         vals = np.append(self.val_buf[path_slice], last_val)
 
         # the next two lines implement GAE-Lambda advantage calculation
-        deltas = rews[:-1] + self.gamma * vals[1:] - vals[:-1]  # TD residual -- #6 of eq (1) of GAE paper
+        deltas = rews[:-1] + self.gamma * vals[1:] - vals[:-1]  # TD residual -- equation (11) in GAE paper
         self.adv_buf[path_slice] = core.discount_cumsum(deltas, self.gamma * self.lam)  # eq (14) of GAE paper
 
         # the next line computes rewards-to-go, to be targets for the value function
