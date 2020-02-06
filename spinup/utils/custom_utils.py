@@ -69,7 +69,7 @@ def eval_and_save_best_model(
 
     if best_eval_AverageEpRet < mean:
         best_eval_AverageEpRet = mean
-        if (std < best_eval_StdEpRet * 1.05) and save:
+        if (std <= best_eval_StdEpRet * 1.5) and save:
             # save the best model so far to simple_save999999. This is a hack to leverage the available codes to save
             # the best model identified by episode 999999
             # env = (lambda: gym.make(env_name))()
