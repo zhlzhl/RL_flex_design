@@ -10,6 +10,8 @@ from datetime import datetime
 from spinup.utils.mpi_tf import MpiAdamOptimizer, sync_all_params
 from spinup.utils.mpi_tools import mpi_fork, mpi_avg, proc_id, mpi_statistics_scalar, num_procs
 from spinup.utils.custom_utils import *
+from spinup.utils.logx import restore_tf_graph
+
 import copy
 
 
@@ -103,7 +105,8 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
         steps_per_epoch=4000, epochs=50, gamma=0.99, clip_ratio=0.2, pi_lr=3e-4,
         vf_lr=1e-3, train_pi_iters=80, train_v_iters=80, lam=0.97, max_ep_len=1000,
         target_kl=0.01, logger_kwargs=dict(), save_freq=10, custom_h=None, eval_episodes=50,
-        do_checkpoint_eval=False, env_name=None, eval_temp=1.0, train_starting_temp=1.0):
+        do_checkpoint_eval=False, env_name=None, eval_temp=1.0, train_starting_temp=1.0,
+        previous_output_dir=None):
     """
 
     Args:
@@ -199,21 +202,69 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
         hidden_layers_int_list = [int(h) for h in hidden_layers_str_list]
         ac_kwargs['hidden_sizes'] = hidden_layers_int_list
 
-    # Inputs to computation graph
-    x_ph, a_ph = core.placeholders_from_spaces(env.observation_space, env.action_space)
-    adv_ph, ret_ph, logp_old_ph = core.placeholders(None, None, None)
+    # create a tf session with GPU memory usage option to be allow_growth so that one program will not use up the
+    # whole GPU memory
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+    sess = tf.Session(config=config)
 
-    temperature_ph = tf.placeholder(tf.float32, shape=(), name="init")
+    if previous_output_dir is None:
+        # Inputs to computation graph
+        x_ph, a_ph = core.placeholders_from_spaces(env.observation_space, env.action_space)
+        adv_ph, ret_ph, logp_old_ph = core.placeholders(None, None, None)
+
+        temperature_ph = tf.placeholder(tf.float32, shape=(), name="init")
 
 
-    # Main outputs from computation graph
-    pi, logp, logp_pi, v = actor_critic(x_ph, a_ph, temperature_ph, **ac_kwargs)
+        # Main outputs from computation graph
+        pi, logp, logp_pi, v = actor_critic(x_ph, a_ph, temperature_ph, **ac_kwargs)
 
-    # Need all placeholders in *this* order later (to zip with data from buffer)
-    all_phs = [x_ph, a_ph, adv_ph, ret_ph, logp_old_ph, temperature_ph]
 
-    # Every step, get: action, value, and logprob
-    get_action_ops = [pi, v, logp_pi]
+
+        # PPO objectives
+        ratio = tf.exp(logp - logp_old_ph)  # pi(a|s) / pi_old(a|s)
+        min_adv = tf.where(adv_ph > 0, (1 + clip_ratio) * adv_ph, (1 - clip_ratio) * adv_ph)
+        pi_loss = -tf.reduce_mean(tf.minimum(ratio * adv_ph, min_adv))
+        v_loss = tf.reduce_mean((ret_ph - v) ** 2)
+
+        # Info (useful to watch during learning)
+        approx_kl = tf.reduce_mean(logp_old_ph - logp)  # a sample estimate for KL-divergence, easy to compute
+        approx_ent = tf.reduce_mean(-logp)  # a sample estimate for entropy, also easy to compute
+        clipped = tf.logical_or(ratio > (1 + clip_ratio), ratio < (1 - clip_ratio))
+        clipfrac = tf.reduce_mean(tf.cast(clipped, tf.float32))
+
+        # Optimizers
+        train_pi = MpiAdamOptimizer(learning_rate=pi_lr, name='train_pi').minimize(pi_loss)
+        train_v = MpiAdamOptimizer(learning_rate=vf_lr, name='train_v').minimize(v_loss)
+
+        sess.run(tf.global_variables_initializer())
+
+    else:
+        file_path = previous_output_dir + '/simple_save999999'
+        model = restore_tf_graph(sess, file_path)
+
+        # placeholders
+        x_ph, a_ph, adv_ph= model['x'], model['a'], model['adv']
+        ret_ph, logp_old_ph, temperature_ph = model['ret'], model['logp_old'], model['temperature']
+
+        # model output
+        pi, logp, logp_pi, v = model['pi'], model['logp'], model['logp_pi'], model['v']
+
+        pi_loss, v_loss = model['pi_loss'], model['v_loss']
+        approx_kl, approx_ent, clipfrac = model['approx_kl'], model['approx_ent'], model['clipfrac']
+
+        # Optimizers
+        # Optimizers
+        # train_pi, train_v = model['train_pi'], model['train_v']
+        optimizer_pi = tf.train.AdamOptimizer(learning_rate=pi_lr, name='train_pi_{}'.format(env.target_arcs))
+        optimizer_v = tf.train.AdamOptimizer(learning_rate=vf_lr, name='train_v_{}'.format(env.target_arcs))
+        sess.run(tf.compat.v1.variables_initializer(optimizer_pi.variables()))
+        sess.run(tf.compat.v1.variables_initializer(optimizer_v.variables()))
+
+        print(optimizer_pi.variables())
+        print(optimizer_v.get_slot_names())
+        train_pi = optimizer_pi.minimize(pi_loss)
+        train_v = optimizer_v.minimize(v_loss)
 
     # Experience buffer
     local_steps_per_epoch = int(steps_per_epoch / num_procs())
@@ -223,36 +274,36 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
     var_counts = tuple(core.count_vars(scope) for scope in ['pi', 'v'])
     logger.log('\nNumber of parameters: \t pi: %d, \t v: %d\n' % var_counts)
 
-    # PPO objectives
-    ratio = tf.exp(logp - logp_old_ph)  # pi(a|s) / pi_old(a|s)
-    min_adv = tf.where(adv_ph > 0, (1 + clip_ratio) * adv_ph, (1 - clip_ratio) * adv_ph)
-    pi_loss = -tf.reduce_mean(tf.minimum(ratio * adv_ph, min_adv))
-    v_loss = tf.reduce_mean((ret_ph - v) ** 2)
+    # Every step, get: action, value, and logprob
+    get_action_ops = [pi, v, logp_pi]
 
-    # Info (useful to watch during learning)
-    approx_kl = tf.reduce_mean(logp_old_ph - logp)  # a sample estimate for KL-divergence, easy to compute
-    approx_ent = tf.reduce_mean(-logp)  # a sample estimate for entropy, also easy to compute
-    clipped = tf.logical_or(ratio > (1 + clip_ratio), ratio < (1 - clip_ratio))
-    clipfrac = tf.reduce_mean(tf.cast(clipped, tf.float32))
+    # Need all placeholders in *this* order later (to zip with data from buffer)
+    all_phs = [x_ph, a_ph, adv_ph, ret_ph, logp_old_ph, temperature_ph]
 
-    # Optimizers
-    train_pi = MpiAdamOptimizer(learning_rate=pi_lr).minimize(pi_loss)
-    train_v = MpiAdamOptimizer(learning_rate=vf_lr).minimize(v_loss)
-
-    # create a tf session with GPU memory usage option to be allow_growth so that one program will not use up the
-    # whole GPU memory
-    config = tf.ConfigProto()
-    config.gpu_options.allow_growth = True
-    sess = tf.Session(config=config)
-    sess.run(tf.global_variables_initializer())
     # log tf graph
     tf.summary.FileWriter(tb_logdir, sess.graph)
 
     # Sync params across processes
     sess.run(sync_all_params())
-
     # Setup model saving
-    logger.setup_tf_saver(sess, inputs={'x': x_ph, 'temperature': temperature_ph}, outputs={'pi': pi, 'v': v})
+    logger.setup_tf_saver(sess,
+                          # all_phs = [x_ph, a_ph, adv_ph, ret_ph, logp_old_ph, temperature_ph]
+                          inputs={'x': x_ph,
+                                  'a': a_ph,
+                                  'adv': adv_ph,
+                                  'ret': ret_ph,
+                                  'logp_old': logp_old_ph,
+                                  'temperature': temperature_ph},
+                          outputs={'pi': pi,
+                                   'v': v,
+                                   'logp': logp,
+                                   'logp_pi': logp_pi,
+                                   'pi_loss': pi_loss,
+                                   'v_loss': v_loss,
+                                   'approx_kl': approx_kl,
+                                   'approx_ent': approx_ent,
+                                   'clipfrac': clipfrac
+                                   })
 
     # for saving the best models and performances during train and evaluate
     best_eval_AverageEpRet = 0.0
@@ -314,7 +365,7 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
         # Save model
         if (epoch % save_freq == 0) or (epoch == epochs - 1):
             # Save a new model every save_freq and at the last epoch. Do not overwrite the previous save.
-            logger.save_state({'env': env}, epoch)
+            logger.save_state({'env': env.name}, epoch)
 
             # Evaluate and save best model
             if do_checkpoint_eval and epoch > 0:

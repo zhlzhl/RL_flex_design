@@ -60,10 +60,15 @@ def restore_tf_graph(sess, fpath):
                 fpath
             )
     model_info = joblib.load(osp.join(fpath, 'model_info.pkl'))
-    graph = tf.get_default_graph()
+    graph = tf.compat.v1.get_default_graph()
     model = dict()
     model.update({k: graph.get_tensor_by_name(v) for k,v in model_info['inputs'].items()})
     model.update({k: graph.get_tensor_by_name(v) for k,v in model_info['outputs'].items()})
+
+    if '999999' in fpath:
+        model['train_pi'] = graph.get_operation_by_name('train_pi')
+        model['train_v'] = graph.get_operation_by_name('train_v')
+
     return model
 
 class Logger:
@@ -183,7 +188,6 @@ class Logger:
             try:
                 joblib.dump(state_dict, osp.join(self.output_dir, fname))
             except:
-                # todo: I got this warning in the latest two runs. need to fix this.
                 self.log('Warning: could not pickle state_dict.', color='red')
             if hasattr(self, 'tf_saver_elements'):
                 self._tf_simple_save(itr)

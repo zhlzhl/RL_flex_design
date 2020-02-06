@@ -3,7 +3,7 @@ from spinup.user_config import DEFAULT_DATA_DIR, FORCE_DATESTAMP, \
 from spinup.utils.logx import colorize
 from spinup.utils.mpi_tools import mpi_fork, msg
 from spinup.utils.serialization_utils import convert_json
-from spinup.utils.custom_utils import get_custom_env_fn
+from spinup.utils.custom_utils import get_custom_env_fn, insert_target_arcs_to_env_name
 import base64
 from copy import deepcopy
 import cloudpickle
@@ -155,19 +155,25 @@ def call_experiment(exp_name, thunk, seed=0, num_cpu=1, data_dir=None,
     def thunk_plus():
         # Make 'env_fn' from 'env_name'
         if 'env_name' in kwargs:
-            import gym
-            import flexibility  # registers custom envs (flexibility) to gym env registry
             env_name = kwargs['env_name']
-            # if 'use_custom_env' in kwargs:
-            #     if kwargs['use_custom_env']:
-            kwargs['env_fn'] = get_custom_env_fn(env_name)
-            #     else:
-            #         kwargs['env_fn'] = lambda: gym.make(env_name)
-            # else:
-            #     kwargs['env_fn'] = lambda: gym.make(env_name)
 
-            # if 'use_custom_env' in kwargs:
-            #     del kwargs['use_custom_env']
+            if 'target_arcs' in kwargs:
+                assert not ('T' in env_name), "When --target_arcs is used, T should not appear in env_name: {}"\
+                    .format(env_name)
+                env_name = insert_target_arcs_to_env_name(env_name, kwargs['target_arcs'])
+
+                # update the env_name in kwargs to include target arcs also
+                kwargs['env_name'] = env_name
+
+                del kwargs['target_arcs']
+
+            kwargs['env_fn'] = get_custom_env_fn(env_name)
+
+        if not kwargs['train_on_previous_model']:
+            kwargs['previous_output_dir'] = None
+
+        del kwargs['train_on_previous_model']
+
 
         # Fork into multiple processes
         mpi_fork(num_cpu)
@@ -223,6 +229,8 @@ def call_experiment(exp_name, thunk, seed=0, num_cpu=1, data_dir=None,
     """ % (plot_cmd, test_cmd)) + '=' * DIV_LINE_WIDTH + '\n' * 5
 
     print(output_msg)
+
+    return logger_kwargs['output_dir']
 
 
 def all_bools(vals):
@@ -542,6 +550,7 @@ class ExperimentGrid:
             for _ in prog_bar:
                 time.sleep(wait / steps)
 
+        previous_output_dir = None
         # Run the variants.
         for var in variants:
             exp_name = self.variant_name(var)
@@ -557,8 +566,9 @@ class ExperimentGrid:
                 # Assume thunk is given as a function.
                 thunk_ = thunk
 
-            call_experiment(exp_name, thunk_, num_cpu=num_cpu,
-                            data_dir=data_dir, datestamp=datestamp, **var)
+            var['previous_output_dir'] = previous_output_dir
+            previous_output_dir = call_experiment(exp_name, thunk_, num_cpu=num_cpu,
+                                data_dir=data_dir, datestamp=datestamp, **var)
 
 
 def test_eg():

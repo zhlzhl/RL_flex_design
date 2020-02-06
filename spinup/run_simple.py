@@ -26,6 +26,9 @@ def run_experiment(args):
     eg.add('train_v_iters', args.train_v_iters)
     eg.add('eval_temp', args.eval_temp)
     eg.add('train_starting_temp', args.train_starting_temp)
+    eg.add('train_on_previous_model', args.train_on_previous_model)
+    if args.target_arcs is not None:
+        eg.add('target_arcs', args.target_arcs)
 
 
 
@@ -46,11 +49,6 @@ if __name__ == '__main__':
     parser.add_argument('--save_freq', type=int, default=5000)
     parser.add_argument('--env_name', type=str, default="Flexibility-v0")
     parser.add_argument('--exp_name', type=str, default='Flexibility-PPO')
-    # parser.add_argument('--n_sample', type=int, default=10,
-    #                     help="DEPRECATED with implementation of --use_custom_env. number of samples of demand when "
-    #                          "evaluating structure performance for the "
-    #                          "first half of "
-    #                          "training epochs. n_sample = 5000 is used for the 2nd half of the epochs.")
     parser.add_argument('--eval_episodes', type=int, default=50,
                         help="number of episodes to run during evaluation.")
 
@@ -58,6 +56,9 @@ if __name__ == '__main__':
     parser.add_argument('--custom_h', nargs='+', default=None)
     parser.add_argument('--act', type=str, default="tf.nn.relu")
     parser.add_argument('--do_checkpoint_eval', action='store_true', help="Whether to do evaluation per save frequency")
+    parser.add_argument('--train_on_previous_model', action='store_true',
+                        help="to use the best saved model in the previous experiment to start training")
+
     # parser.add_argument('--use_custom_env', action='store_true',
     #                     help="whether to use custom env instead of env defined in gym format")
     parser.add_argument('--train_pi_iters', type=int, default=80, help="# of iterations per each training step for pi")
@@ -67,6 +68,7 @@ if __name__ == '__main__':
     parser.add_argument("--train_starting_temp", type=float, default=1.0,
                         help="starting temperature used during training. If larger than 1.0, training temperature "
                              "decreases to 1.0 in the first 1/3 of epochs. ")
+    parser.add_argument('--target_arcs', type=int, nargs='+', default=None, help="a list of target arcs")
 
     args = parser.parse_args()
 

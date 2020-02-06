@@ -75,13 +75,13 @@ def eval_and_save_best_model(
             # env = (lambda: gym.make(env_name))()
             # train_logger.save_state({'env': env}, itr=999999)
             # eval_env = (lambda: gym.make(eval_env_name))()
-            eval_env = get_custom_env_fn(eval_env_name)()
-            train_logger.save_state({'env': eval_env}, itr=999999)
+            # eval_env = get_custom_env_fn(eval_env_name)()
+            train_logger.save_state({'env': eval_env_name}, itr=999999)
 
             # save the best_performance and best_structure across the different runs during evaluation
             save_best_eval(best_performance, best_structure, epoch, env_name, log_dir=eval_logger.output_dir)
 
-            del eval_env
+            # del eval_env
 
     if best_eval_StdEpRet > std:
         best_eval_StdEpRet = std
@@ -110,9 +110,12 @@ def get_new_env_name(env_name, n_sample):
 
 
 def _parse_attributes(env_name):
-    # example env_name Flexibility20x20T40_SP50-v0, Flexibility10x10T15-v0
 
-    env_name = env_name.split('-')[0]
+    assert 'T' in env_name, 'wrong format of env_name: {}. Please make sure input an env in the form of ' \
+                            'Flexibility10x10T30_SP50-v0, or F20x20T20_SP10, or F3x3T4-v0, etc.'.format(env_name)
+    # example env_name Flexibility20x20T40_SP50-v0, Flexibility10x10T15-v0
+    if '-v0' in env_name:
+        env_name = env_name.split('-')[0]  # remove '-v0'
 
     if '_SP' in env_name:
         splits = env_name.split('_SP')
@@ -139,11 +142,30 @@ def get_custom_env_fn(env_name):
     class CustomFlexibilityEnv(FlexibilityEnv):
         def __init__(self):
             super().__init__(n_plant=n_plant, n_product=n_product,
-                             target_arcs=target_arcs, n_sample=n_sample)
+                             target_arcs=target_arcs, n_sample=n_sample, name=env_name)
             print('using custom env: {} | n_plant: {} | n_product: {} | target_arcs: {} | n_sample: {}'
                   .format(env_name, n_plant, n_product, target_arcs, n_sample))
 
     return CustomFlexibilityEnv
+
+
+def insert_target_arcs_to_env_name(env_name, target_arcs):
+    assert not ('T' in env_name), "When --target_arcs is used, T should not appear in env_name: {}".format(env_name)
+    # insert target arcs to env_name
+    if '_SP' in env_name:
+        # insert target arcs in front of _SP
+        index = env_name.find('_SP')
+        env_name = env_name[:index] + 'T{}'.format(target_arcs) + env_name[index:]
+    elif '-v0' in env_name:
+        # insert target arcs in front '-v0'
+        index = env_name.find('-v0')
+        env_name = env_name[:index] + 'T{}'.format(target_arcs) + env_name[index:]
+    else:
+        # append to the end
+        env_name = env_name + 'T{}'.format(target_arcs)
+
+    return env_name
+
 
 def run_policy_with_custom_logging(env_name, get_action, logger, tb_logger, epoch,
                                    max_ep_len=None, n_episodes=50, render=True, n_sample=5000):
@@ -196,3 +218,20 @@ def run_policy_with_custom_logging(env_name, get_action, logger, tb_logger, epoc
     del env
 
     return mean, std, min, max, best_performance, best_structure
+
+
+def main():
+    env_name = "F20x20"
+    print(insert_target_arcs_to_env_name(env_name, target_arcs=10))
+
+    print(insert_target_arcs_to_env_name('Flexibility10x10', target_arcs=3))
+
+    print(insert_target_arcs_to_env_name('Flexibility2x2_SP10-v0', target_arcs=2))
+
+    print(insert_target_arcs_to_env_name('Flexibility20x20_SP10', target_arcs=2))
+
+
+
+
+if __name__ == '__main__':
+    main()

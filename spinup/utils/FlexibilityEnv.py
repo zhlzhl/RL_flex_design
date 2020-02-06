@@ -187,6 +187,7 @@ class FlexibilityEnv(gym.Env):
             std_mean_ratio=0.4,
             reward_shaping="BASIC",
             arc_probability_numerator=0.0,
+            name=None
     ):
         self.n_plant = n_plant
         self.n_product = n_product
@@ -197,6 +198,7 @@ class FlexibilityEnv(gym.Env):
         self.adjacency_matrix = np.random.choice(np.arange(0, 2), size=(self.n_plant, self.n_product), p=[0.9, 0.1])
         self.reward_shaping = reward_shaping
         self.arc_probability_numerator = arc_probability_numerator
+        self.name = name
 
         # Env variables
         self.action_dim = n_plant * n_product

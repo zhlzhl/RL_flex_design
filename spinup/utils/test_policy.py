@@ -5,11 +5,12 @@ import os.path as osp
 import tensorflow as tf
 from spinup import EpochLogger
 from spinup.utils.logx import restore_tf_graph
+from spinup.utils.custom_utils import get_custom_env_fn
 import gym
 import flexibility
 
 
-def load_policy(fpath, itr='last', deterministic=False, eval_temp=1.0, use_temp=True, env_name=None):
+def load_policy(fpath, itr='last', deterministic=False, eval_temp=1.0, env_name=None):
     # handle which epoch to load from
     if itr == 'last':
         saves = [int(x[11:]) for x in os.listdir(fpath) if 'simple_save' in x and len(x) > 11]
@@ -31,18 +32,19 @@ def load_policy(fpath, itr='last', deterministic=False, eval_temp=1.0, use_temp=
         action_op = model['pi']
 
     # make function for producing an action given a single state
-    if not use_temp:
-        get_action = lambda x: sess.run(action_op, feed_dict={model['x']: x[None, :]})[0]
-    else:
-        get_action = lambda x: sess.run(action_op, feed_dict={model['x']: x[None, :],
-                                                              model['temperature']: eval_temp})[0]
+    # if not use_temp:
+    #     get_action = lambda x: sess.run(action_op, feed_dict={model['x']: x[None, :]})[0]
+    # else:
+    get_action = lambda x: sess.run(action_op, feed_dict={model['x']: x[None, :],
+                                                          model['temperature']: eval_temp})[0]
 
     if env_name is None:
         # try to load environment from save
         # (sometimes this will fail because the environment could not be pickled)
         try:
             state = joblib.load(osp.join(fpath, 'vars' + itr + '.pkl'))
-            env = state['env']
+            env_name = state['env']
+            env = get_custom_env_fn(env_name)()
         except:
             env = None
     else:
@@ -91,7 +93,6 @@ if __name__ == '__main__':
     parser.add_argument('--itr', '-i', type=int, default=-1)
     parser.add_argument('--deterministic', '-d', action='store_true')
     parser.add_argument('--eval_temp', type=float, default=1.0)
-    parser.add_argument('--use_temp', action='store_true')
     parser.add_argument('--env_name', type=str, default=None,
                         help='manually specify an env for testing policy. this is optional. ')
     args = parser.parse_args()
@@ -99,6 +100,5 @@ if __name__ == '__main__':
                                   args.itr if args.itr >= 0 else 'last',
                                   args.deterministic,
                                   args.eval_temp,
-                                  use_temp=args.use_temp,
                                   env_name=args.env_name)
     run_policy(env, get_action, args.len, args.episodes, not (args.norender))
