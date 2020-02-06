@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #tarcs=(16 18 20 22 24)
-tarcs=(25 26 27 28 29 30 31 32 33 34 35 36)
+tarcs=(27 28 29 30 31 32 33 34 35 36)
 for (( i=0; i<${#tarcs[@]}; i++ )); do
 python -m spinup.run_simple \
     --algo ppo  \

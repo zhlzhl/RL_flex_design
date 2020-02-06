@@ -213,8 +213,8 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
         x_ph, a_ph = core.placeholders_from_spaces(env.observation_space, env.action_space)
         adv_ph, ret_ph, logp_old_ph = core.placeholders(None, None, None)
 
-        temperature_ph = tf.placeholder(tf.float32, shape=(), name="init")
 
+        temperature_ph = tf.placeholder(tf.float32, shape=(), name="init")
 
         # Main outputs from computation graph
         pi, logp, logp_pi, v = actor_critic(x_ph, a_ph, temperature_ph, **ac_kwargs)
@@ -305,10 +305,6 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
                                    'clipfrac': clipfrac
                                    })
 
-    # for saving the best models and performances during train and evaluate
-    best_eval_AverageEpRet = 0.0
-    best_eval_StdEpRet = 1.0e20
-
     def update():
         inputs = {k: v for k, v in zip(all_phs, buf.get())}
         pi_l_old, v_l_old, ent = sess.run([pi_loss, v_loss, approx_ent], feed_dict=inputs)
@@ -372,10 +368,20 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
                 # below is a hack. best model related stuff is saved at itr 999999, therefore, simple_save999999.
                 # Doing this way, I can use test_policy and plot directly to test the best models.
                 # saved best models includes:
-                # 1) a copy of the env
+                # 1) a copy of the env_name
                 # 2) the best rl model with parameters
                 # 3) a pickle file "best_eval_performance_n_structure" storing best_performance, best_structure and epoch
                 # note that 1) and 2) are spinningup defaults, and 3) is a custom save
+
+                # for saving the best models and performances during train and evaluate
+                # only start to save best models after half training epochs
+                if epoch < epochs / 2 + 1:
+                    best_eval_AverageEpRet = 0.0
+                    best_eval_StdEpRet = 1.0e20
+                    save = False
+                else:
+                    save = True
+
                 best_eval_AverageEpRet, best_eval_StdEpRet = eval_and_save_best_model(
                     best_eval_AverageEpRet,
                     best_eval_StdEpRet,
@@ -393,8 +399,10 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
                     env_name=env_name,
                     get_action=lambda x: sess.run(pi, feed_dict={x_ph: x[None, :],
                                                                  temperature_ph: eval_temp})[0],
-                    n_sample=env.n_sample if epoch < epochs/2 else 5000,  # number of samples to draw when simulate demand
-                    num_episodes=eval_episodes
+                    n_sample=env.n_sample if epoch < epochs / 2 else 5000,
+                    # number of samples to draw when simulate demand
+                    num_episodes=eval_episodes,
+                    save=save
                 )
 
         # Perform PPO update!

@@ -53,7 +53,7 @@ def save_best_eval(best_performance, best_structure, epoch, env_name, log_dir):
 # to be used for testing policy during training
 def eval_and_save_best_model(
         best_eval_AverageEpRet, best_eval_StdEpRet, eval_logger, train_logger, tb_logger, epoch,
-        env_name, get_action, render=True, n_sample=5000, num_episodes=50
+        env_name, get_action, render=True, n_sample=5000, num_episodes=50, save=False
 ):
     # for envs with different versions of different n_sample, choose a corresponding env with indicated n_sample for
     # testing
@@ -69,7 +69,7 @@ def eval_and_save_best_model(
 
     if best_eval_AverageEpRet < mean:
         best_eval_AverageEpRet = mean
-        if std < best_eval_StdEpRet * 1.05:
+        if (std <= best_eval_StdEpRet * 1.5) and save:
             # save the best model so far to simple_save999999. This is a hack to leverage the available codes to save
             # the best model identified by episode 999999
             # env = (lambda: gym.make(env_name))()
