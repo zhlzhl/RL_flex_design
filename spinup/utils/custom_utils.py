@@ -76,7 +76,8 @@ def eval_and_save_best_model(
             # train_logger.save_state({'env': env}, itr=999999)
             # eval_env = (lambda: gym.make(eval_env_name))()
             # eval_env = get_custom_env_fn(eval_env_name)()
-            train_logger.save_state({'env': eval_env_name}, itr=999999)
+            # train_logger.save_state({'env': eval_env_name}, itr=999999)
+            train_logger.custom_save_state({'env': eval_env_name}, itr=999999)
 
             # save the best_performance and best_structure across the different runs during evaluation
             save_best_eval(best_performance, best_structure, epoch, env_name, log_dir=eval_logger.output_dir)

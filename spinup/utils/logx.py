@@ -169,11 +169,11 @@ class Logger:
         To be clear: this is about saving *state*, not logging diagnostics.
         All diagnostic logging is separate from this function. This function
         will save whatever is in ``state_dict``---usually just a copy of the
-        environment---and the most recent parameters for the model you 
-        previously set up saving for with ``setup_tf_saver``. 
+        environment---and the most recent parameters for the model you
+        previously set up saving for with ``setup_tf_saver``.
 
         Call with any frequency you prefer. If you only want to maintain a
-        single state and overwrite it at each call with the most recent 
+        single state and overwrite it at each call with the most recent
         version, leave ``itr=None``. If you want to keep all of the states you
         save, provide unique (increasing) values for 'itr'.
 
@@ -191,6 +191,38 @@ class Logger:
                 self.log('Warning: could not pickle state_dict.', color='red')
             if hasattr(self, 'tf_saver_elements'):
                 self._tf_simple_save(itr)
+
+
+    def custom_save_state(self, state_dict, itr=None):
+        """
+        a custom function to save current env_name and everything in tensorflow session.
+
+        Args:
+            state_dict (dict): Dictionary containing env_name, key-ed by 'env'.
+
+            itr: An int, or None. Current iteration of training.
+        """
+        if proc_id()==0:
+            fname = 'vars.pkl' if itr is None else 'vars%d.pkl'%itr
+            try:
+                joblib.dump(state_dict, osp.join(self.output_dir, fname))
+            except:
+                self.log('Warning: could not pickle state_dict (env_name).', color='red')
+            if hasattr(self, 'tf_saver_elements'):
+                if proc_id() == 0:
+                    assert hasattr(self, 'tf_saver_elements'), \
+                        "First have to setup saving with self.setup_tf_saver"
+                    fpath = 'custom_save' + ('%d' % itr if itr is not None else '')
+                    fpath = osp.join(self.output_dir, fpath)
+                    if osp.exists(fpath):
+                        # custom_save refuses to be useful if fpath already exists,
+                        # so just delete fpath if it's there.
+                        shutil.rmtree(fpath)
+
+                    saver = tf.compat.v1.Saver()
+                    saver.saver(self.tf_saver_elements['session'],
+                                osp.join(fpath, 'my-model-{}'.format(itr)))
+
 
     def setup_tf_saver(self, sess, inputs, outputs):
         """
