@@ -67,7 +67,7 @@ def eval_and_save_best_model(
                                                                                        n_sample=n_sample,
                                                                                        n_episodes=num_episodes)
 
-    if best_eval_AverageEpRet < mean:
+    if best_eval_AverageEpRet <= mean:
         best_eval_AverageEpRet = mean
         if (std <= best_eval_StdEpRet * 1.5) and save:
             # save the best model so far to simple_save999999. This is a hack to leverage the available codes to save
@@ -199,7 +199,7 @@ def run_policy_with_custom_logging(env_name, get_action, logger, tb_logger, epoc
             logger.store(EpRet=ep_ret, EpLen=ep_len)
             print('Episode %d \t EpRet %.3f \t EpLen %d' % (n, ep_ret, ep_len))
 
-            if best_performance < ep_ret:
+            if best_performance <= ep_ret:
                 best_performance = ep_ret
                 best_structure = np.squeeze(o).reshape(n_plant, n_product)
                 # save_best_eval(best_performance, best_structure, epoch, env_name, log_dir=logger.output_dir)

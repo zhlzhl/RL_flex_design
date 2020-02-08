@@ -169,10 +169,10 @@ def call_experiment(exp_name, thunk, seed=0, num_cpu=1, data_dir=None,
 
             kwargs['env_fn'] = get_custom_env_fn(env_name)
 
-        if not kwargs['train_on_previous_model']:
+        if not kwargs['train_continuously']:
             kwargs['previous_output_dir'] = None
 
-        del kwargs['train_on_previous_model']
+        del kwargs['train_continuously']
 
 
         # Fork into multiple processes
@@ -551,8 +551,18 @@ class ExperimentGrid:
                 time.sleep(wait / steps)
 
         previous_output_dir = None
+
+        # assign the transfer_learning_base_model_path to previous_output_dir. Only useful to the first experiment.
+        # experiments later on use the model saved in the output dir of the previous experiment.
+        transfer_learning_base_model_path = variants[0]['transfer_learning_base_model_path']
+        if transfer_learning_base_model_path is not None:
+            previous_output_dir = transfer_learning_base_model_path
+
         # Run the variants.
         for var in variants:
+            # the transfer_learning_base_model_path is already assigned to previous_output_dir. no longer useful.
+            del var['transfer_learning_base_model_path']
+
             exp_name = self.variant_name(var)
 
             # Figure out what the thunk is.

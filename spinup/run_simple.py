@@ -26,7 +26,8 @@ def run_experiment(args):
     eg.add('train_v_iters', args.train_v_iters)
     eg.add('eval_temp', args.eval_temp)
     eg.add('train_starting_temp', args.train_starting_temp)
-    eg.add('train_on_previous_model', args.train_on_previous_model)
+    eg.add('train_continuously', args.train_continuously)
+    eg.add('transfer_learning_base_model_path', args.transfer_learning_base_model_path)
     if args.target_arcs is not None:
         eg.add('target_arcs', args.target_arcs)
 
@@ -56,7 +57,7 @@ if __name__ == '__main__':
     parser.add_argument('--custom_h', nargs='+', default=None)
     parser.add_argument('--act', type=str, default="tf.nn.relu")
     parser.add_argument('--do_checkpoint_eval', action='store_true', help="Whether to do evaluation per save frequency")
-    parser.add_argument('--train_on_previous_model', action='store_true',
+    parser.add_argument('--train_continuously', action='store_true',
                         help="to use the best saved model in the previous experiment to start training")
 
     # parser.add_argument('--use_custom_env', action='store_true',
@@ -67,8 +68,11 @@ if __name__ == '__main__':
                         help="temperature used during evaluation. ")
     parser.add_argument("--train_starting_temp", type=float, default=1.0,
                         help="starting temperature used during training. If larger than 1.0, training temperature "
-                             "decreases to 1.0 in the first 1/3 of epochs. ")
+                             "decreases to 1.0 in the first half of epochs. ")
     parser.add_argument('--target_arcs', type=int, nargs='+', default=None, help="a list of target arcs")
+    parser.add_argument('--transfer_learning_base_model_path', type=str, default=None,
+                        help="path to a trained model to be used as the base model of transfer learning. saved model "
+                             "in simple_save999999 in the directory of path is used. ")
 
     args = parser.parse_args()
 

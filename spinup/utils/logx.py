@@ -71,6 +71,39 @@ def restore_tf_graph(sess, fpath):
 
     return model
 
+
+def custom_restore_tf_graph(sess, fpath):
+    """
+    Loads graphs saved by Logger.
+
+    Will output a dictionary whose keys and values are from the 'inputs'
+    and 'outputs' dict you specified with logger.setup_tf_saver().
+
+    Args:
+        sess: A Tensorflow session.
+        fpath: Filepath to save directory.
+
+    Returns:
+        A dictionary mapping from keys to tensors in the computation graph
+        loaded from ``fpath``.
+    """
+
+    saver = tf.compat.v1.train.import_meta_graph(os.path.join(fpath, 'my_model.meta'))
+    saver.restore(sess, tf.compat.v1.train.latest_checkpoint(fpath))
+    graph = tf.get_default_graph()
+
+    model_info = joblib.load(osp.join(fpath, 'model_info.pkl'))
+    graph = tf.compat.v1.get_default_graph()
+    model = dict()
+    model.update({k: graph.get_tensor_by_name(v) for k,v in model_info['inputs'].items()})
+    model.update({k: graph.get_tensor_by_name(v) for k,v in model_info['outputs'].items()})
+
+    model['train_pi'] = graph.get_operation_by_name('train_pi')
+    model['train_v'] = graph.get_operation_by_name('train_v')
+
+    return model
+
+
 class Logger:
     """
     A general-purpose logger.
@@ -212,17 +245,18 @@ class Logger:
                 if proc_id() == 0:
                     assert hasattr(self, 'tf_saver_elements'), \
                         "First have to setup saving with self.setup_tf_saver"
-                    fpath = 'custom_save' + ('%d' % itr if itr is not None else '')
+                    fpath = 'simple_save' + ('%d' % itr if itr is not None else '')
                     fpath = osp.join(self.output_dir, fpath)
                     if osp.exists(fpath):
                         # custom_save refuses to be useful if fpath already exists,
                         # so just delete fpath if it's there.
                         shutil.rmtree(fpath)
 
-                    saver = tf.compat.v1.Saver()
-                    saver.saver(self.tf_saver_elements['session'],
-                                osp.join(fpath, 'my-model-{}'.format(itr)))
+                    saver = tf.compat.v1.train.Saver()
+                    saver.save(self.tf_saver_elements['session'],
+                                osp.join(fpath, 'my_model'))
 
+                    joblib.dump(self.tf_saver_info, osp.join(fpath, 'model_info.pkl'))
 
     def setup_tf_saver(self, sess, inputs, outputs):
         """

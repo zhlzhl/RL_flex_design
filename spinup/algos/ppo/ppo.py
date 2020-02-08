@@ -1,3 +1,4 @@
+import joblib
 import numpy as np
 import tensorflow as tf
 import gym
@@ -10,7 +11,7 @@ from datetime import datetime
 from spinup.utils.mpi_tf import MpiAdamOptimizer, sync_all_params
 from spinup.utils.mpi_tools import mpi_fork, mpi_avg, proc_id, mpi_statistics_scalar, num_procs
 from spinup.utils.custom_utils import *
-from spinup.utils.logx import restore_tf_graph
+from spinup.utils.logx import custom_restore_tf_graph
 
 import copy
 
@@ -209,17 +210,16 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
     sess = tf.Session(config=config)
 
     if previous_output_dir is None:
+        # if start from scratch, i.e., no transfer learning, set train_starting_temp to 1.0
+        train_starting_temp = 1.0
         # Inputs to computation graph
         x_ph, a_ph = core.placeholders_from_spaces(env.observation_space, env.action_space)
         adv_ph, ret_ph, logp_old_ph = core.placeholders(None, None, None)
-
 
         temperature_ph = tf.placeholder(tf.float32, shape=(), name="init")
 
         # Main outputs from computation graph
         pi, logp, logp_pi, v = actor_critic(x_ph, a_ph, temperature_ph, **ac_kwargs)
-
-
 
         # PPO objectives
         ratio = tf.exp(logp - logp_old_ph)  # pi(a|s) / pi_old(a|s)
@@ -234,37 +234,30 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
         clipfrac = tf.reduce_mean(tf.cast(clipped, tf.float32))
 
         # Optimizers
-        train_pi = MpiAdamOptimizer(learning_rate=pi_lr, name='train_pi').minimize(pi_loss)
-        train_v = MpiAdamOptimizer(learning_rate=vf_lr, name='train_v').minimize(v_loss)
+        # train_pi = MpiAdamOptimizer(learning_rate=pi_lr).minimize(pi_loss, name='train_pi')
+        # train_v = MpiAdamOptimizer(learning_rate=vf_lr).minimize(v_loss, name='train_v')
+        train_pi = tf.compat.v1.train.AdamOptimizer(learning_rate=pi_lr).minimize(pi_loss, name='train_pi')
+        train_v = tf.compat.v1.train.AdamOptimizer(learning_rate=vf_lr).minimize(v_loss, name='train_v')
 
         sess.run(tf.global_variables_initializer())
 
     else:
-        file_path = previous_output_dir + '/simple_save999999'
-        model = restore_tf_graph(sess, file_path)
+        # if used transfer learning is used, cut the epochs by half
+        # epochs = int(np.ceil(epochs / 2))
+        model = custom_restore_tf_graph(sess, fpath=previous_output_dir + '/simple_save999999')
 
-        # placeholders
-        x_ph, a_ph, adv_ph= model['x'], model['a'], model['adv']
+        # get placeholders
+        x_ph, a_ph, adv_ph = model['x'], model['a'], model['adv']
         ret_ph, logp_old_ph, temperature_ph = model['ret'], model['logp_old'], model['temperature']
 
-        # model output
+        # get model output
         pi, logp, logp_pi, v = model['pi'], model['logp'], model['logp_pi'], model['v']
-
         pi_loss, v_loss = model['pi_loss'], model['v_loss']
         approx_kl, approx_ent, clipfrac = model['approx_kl'], model['approx_ent'], model['clipfrac']
 
-        # Optimizers
-        # Optimizers
-        # train_pi, train_v = model['train_pi'], model['train_v']
-        optimizer_pi = tf.train.AdamOptimizer(learning_rate=pi_lr, name='train_pi_{}'.format(env.target_arcs))
-        optimizer_v = tf.train.AdamOptimizer(learning_rate=vf_lr, name='train_v_{}'.format(env.target_arcs))
-        sess.run(tf.compat.v1.variables_initializer(optimizer_pi.variables()))
-        sess.run(tf.compat.v1.variables_initializer(optimizer_v.variables()))
-
-        print(optimizer_pi.variables())
-        print(optimizer_v.get_slot_names())
-        train_pi = optimizer_pi.minimize(pi_loss)
-        train_v = optimizer_v.minimize(v_loss)
+        # get Optimizers
+        train_pi = model['train_pi']
+        train_v = model['train_v']
 
     # Experience buffer
     local_steps_per_epoch = int(steps_per_epoch / num_procs())
@@ -361,9 +354,8 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
         # Save model
         if (epoch % save_freq == 0) or (epoch == epochs - 1):
             # Save a new model every save_freq and at the last epoch. Do not overwrite the previous save.
-            logger.save_state({'env': env.name}, epoch)
+            # logger.save_state({'env': env.name}, epoch)
             logger.custom_save_state({'env': env.name}, epoch)
-
 
             # Evaluate and save best model
             if do_checkpoint_eval and epoch > 0:
@@ -382,6 +374,11 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
                     best_eval_StdEpRet = 1.0e20
                     save = False
                 else:
+                    if save is False:
+                        # set save to True. also re-initialize best_eval metrics
+                        best_eval_AverageEpRet = 0.0
+                        best_eval_StdEpRet = 1.0e20
+
                     save = True
 
                 best_eval_AverageEpRet, best_eval_StdEpRet = eval_and_save_best_model(
@@ -391,7 +388,7 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
                     # structure without messing up the logger in the training loop
                     eval_logger=EpochLogger(**dict(
                         exp_name=logger_kwargs['exp_name'],
-                        output_dir=os.path.join(logger.output_dir, "custom_save999999"))),
+                        output_dir=os.path.join(logger.output_dir, "simple_save999999"))),
 
                     train_logger=logger,
                     tb_logger=tb_logger,
@@ -450,7 +447,7 @@ def _get_current_temperature(epoch, epochs, train_starting_temp):
 
     if train_starting_temp > 1.0:
         temp_gap = train_starting_temp - 1.0
-        exploring_epochs = np.floor(epochs / 3.0 * 2)
+        exploring_epochs = np.floor(epochs * 0.9)
         temp_delta = temp_gap / exploring_epochs
         if epoch < exploring_epochs:
             current_temp = train_starting_temp - temp_delta * epoch

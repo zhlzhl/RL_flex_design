@@ -4,7 +4,7 @@ import os
 import os.path as osp
 import tensorflow as tf
 from spinup import EpochLogger
-from spinup.utils.logx import restore_tf_graph
+from spinup.utils.logx import custom_restore_tf_graph
 from spinup.utils.custom_utils import get_custom_env_fn
 import gym
 import flexibility
@@ -15,12 +15,16 @@ def load_policy(fpath, itr='last', deterministic=False, eval_temp=1.0, env_name=
     if itr == 'last':
         saves = [int(x[11:]) for x in os.listdir(fpath) if 'simple_save' in x and len(x) > 11]
         itr = '%d' % max(saves) if len(saves) > 0 else ''
+
+        if itr is not '':
+            print("itr is not given, use saved model from the last itr {}".format(itr))
+
     else:
         itr = '%d' % itr
 
     # load the things!
     sess = tf.Session()
-    model = restore_tf_graph(sess, osp.join(fpath, 'simple_save' + itr))
+    model = custom_restore_tf_graph(sess, osp.join(fpath, 'simple_save' + itr))
 
     # get the correct op for executing actions
     if deterministic and 'mu' in model.keys():
