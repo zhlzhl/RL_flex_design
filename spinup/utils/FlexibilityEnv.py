@@ -107,6 +107,8 @@ def expected_sales_for_structure(structure, n_sample, capacity, std_mean_ratio):
         # truncate demand at two standard deviations
         demand = np.maximum(demand, demand_mean - 2 * demand_std)
         demand = np.minimum(demand, demand_mean + 2 * demand_std)
+        # make sure demand is not negative
+        demand = np.maximum(demand, 0.0)
 
         for j in products:
             constraint_product[j].setAttr(GRB.attr.RHS, demand[j])
@@ -184,7 +186,7 @@ class FlexibilityEnv(gym.Env):
             target_arcs=15,
             n_sample=5000,
             capacity=100,
-            std_mean_ratio=0.4,
+            std_mean_ratio=0.8,
             reward_shaping="BASIC",
             arc_probability_numerator=0.0,
     ):
