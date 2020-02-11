@@ -31,5 +31,5 @@ def load_experiment(experiment):
 
 
 if __name__ == "__main__":
-    experiment = '20x20'
+    experiment = '10x10'
     best_structures = load_experiment(experiment)
