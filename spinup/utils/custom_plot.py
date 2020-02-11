@@ -59,6 +59,21 @@ def plot_data(data, xaxis='Epoch', value="AverageEpRet", condition="Condition1",
     plt.tight_layout(pad=0.5)
 
 
+def get_Tarc(exp_name):
+    # exaple exp_name 2020-02-04_F20x20T40_SP50_PPO_CH2048-512_SPE24000_ITR80_EP700, the target arc # is after the first "T"
+
+    if 'T' in exp_name:
+        splits = exp_name.split('T')
+        # use the second split to split again
+        target_arc = splits[1].split('_')[0]
+        return "T{}".format(target_arc)
+    else:
+        print("exp_name {} doesn't not contain 'T'".format(exp_name))
+        return exp_name
+
+
+
+
 def get_datasets(logdir, condition=None):
     """
     Recursively look through logdir for output files produced by
@@ -79,7 +94,7 @@ def get_datasets(logdir, condition=None):
                     exp_name = config['exp_name']
             except:
                 print('No file named config.json')
-            condition1 = condition or exp_name or 'exp'
+            condition1 = condition or get_Tarc(exp_name) or 'exp'
             condition2 = condition1 + '-' + str(exp_idx)
             exp_idx += 1
             if condition1 not in units:
@@ -265,6 +280,8 @@ def main():
     """
 
     logdirs = get_datasets_by_identifier(args.logdir_identifiers)
+
+    logdirs = sorted(logdirs, key= lambda x : x.split('/')[-1][20:])
 
     make_plots(logdirs, args.legend, args.xaxis, args.value, args.count,
                smooth=args.smooth, select=args.select, exclude=args.exclude,
