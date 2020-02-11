@@ -38,7 +38,7 @@ def collect_and_copy_best_structures():
 
 
 # a unique string to identify the set of directories to look into
-DIR_IDENTIFIER = 'CENV'
+DIR_IDENTIFIER = 'CENV0-8'
 # a unique string to identify the name of the files to be copied
 FILE_IDENTIFIER = 'best_eval_performance_n_structure'
 # the name of the directory where the best structures are saved
