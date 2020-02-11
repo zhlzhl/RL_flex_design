@@ -281,6 +281,8 @@ def main():
 
     logdirs = get_datasets_by_identifier(args.logdir_identifiers)
 
+    # sort the dirs by 1) getting the last directory from the path using split('/')[-1], and 2) removing the dates in
+    # the dir name only getting characters after indexed by 20 and above
     logdirs = sorted(logdirs, key= lambda x : x.split('/')[-1][20:])
 
     make_plots(logdirs, args.legend, args.xaxis, args.value, args.count,
