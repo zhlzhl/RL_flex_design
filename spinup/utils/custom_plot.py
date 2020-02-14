@@ -14,7 +14,7 @@ exp_idx = 0
 units = dict()
 
 
-def plot_data(data, xaxis='Epoch', value="AverageEpRet", condition="Condition1", smooth=1, **kwargs):
+def plot_data(data, xaxis='Epoch', value="AverageEpRet", condition="Condition1", smooth=1, legend_name=None, **kwargs):
     if smooth > 1:
         """
         smooth data with moving window average.
@@ -31,13 +31,21 @@ def plot_data(data, xaxis='Epoch', value="AverageEpRet", condition="Condition1",
 
     if isinstance(data, list):
         data = pd.concat(data, ignore_index=True, sort=True)
+
+    # change 'Condition1' to legend_name
+    if legend_name is not None:
+        data.rename(columns={'Condition1': legend_name}, inplace=True)
+        condition = legend_name
+
     sns.set(style="darkgrid", font_scale=1.5)
-    sns.tsplot(data=data, time=xaxis, value=value, unit="Unit", condition=condition, ci='sd', **kwargs)
+    # sns.tsplot(data=data, time=xaxis, value=value, unit="Unit", condition=condition, ci='sd', **kwargs)
+
+    sns.lineplot(data=data, x=xaxis, y=value, hue=condition, ci='sd', **kwargs)
+
     """
     If you upgrade to any version of Seaborn greater than 0.8.1, switch from 
     tsplot to lineplot replacing L29 with:
 
-        sns.lineplot(data=data, x=xaxis, y=value, hue=condition, ci='sd', **kwargs)
 
     Changes the colorscheme and the default legend style, though.
     """
@@ -112,6 +120,12 @@ def get_datasets(logdir, condition=None):
             exp_data.insert(len(exp_data.columns), 'Condition1', condition1)
             exp_data.insert(len(exp_data.columns), 'Condition2', condition2)
             exp_data.insert(len(exp_data.columns), 'Performance', exp_data[performance])
+
+            # convert Time from seconds to hours
+            if 'Time' in exp_data.columns:
+                exp_data['Time'] = exp_data['Time'] / 3600
+                exp_data.rename(columns={'Time': 'Time (hours)'}, inplace=True)
+
             datasets.append(exp_data)
             break
     return datasets
@@ -206,14 +220,15 @@ def get_all_datasets(all_logdirs, legend=None, select=None, exclude=None):
 
 
 def make_plots(all_logdirs, legend=None, xaxis=None, values=None, count=False,
-               font_scale=1.5, smooth=1, select=None, exclude=None, estimator='mean'):
+               font_scale=1.5, smooth=1, select=None, exclude=None, estimator='mean', legend_name=None):
     data = get_all_datasets(all_logdirs, legend, select, exclude)
     values = values if isinstance(values, list) else [values]
     condition = 'Condition2' if count else 'Condition1'
     estimator = getattr(np, estimator)  # choose what to show on main curve: mean? max? min?
     for value in values:
         plt.figure()
-        plot_data(data, xaxis=xaxis, value=value, condition=condition, smooth=smooth, estimator=estimator)
+        plot_data(data, xaxis=xaxis, value=value, condition=condition, smooth=smooth, estimator=estimator,
+                  legend_name=legend_name)
     plt.show()
 
 
@@ -223,6 +238,7 @@ def main():
     # parser.add_argument('logdir', nargs='*')
     parser.add_argument('logdir_identifiers', nargs='*')
     parser.add_argument('--legend', '-l', nargs='*')
+    parser.add_argument('--legend_name', '-ln', type=str, default=None)
     parser.add_argument('--xaxis', '-x', default='TotalEnvInteracts')
     parser.add_argument('--value', '-y', default='Performance', nargs='*')
     parser.add_argument('--count', action='store_true')
@@ -287,7 +303,7 @@ def main():
 
     make_plots(logdirs, args.legend, args.xaxis, args.value, args.count,
                smooth=args.smooth, select=args.select, exclude=args.exclude,
-               estimator=args.est)
+               estimator=args.est, legend_name=args.legend_name)
 
 
 if __name__ == "__main__":
