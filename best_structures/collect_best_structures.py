@@ -19,7 +19,8 @@ def collect_and_copy_best_structures():
 
     for root, dir_list, _ in os.walk(data_dir):
         for dir in dir_list:
-            if DIR_IDENTIFIER in dir:
+            # if DIR_IDENTIFIER in dir:
+            if all([identifier in dir for identifier in DIR_IDENTIFIER]):
                 for sub_root, sub_dir_list, _ in os.walk(os.path.join(root, dir)):  # level of a particular exp_s0 dir
                     if len(sub_dir_list) > 0:
                         for sub_dir in sub_dir_list:
@@ -38,7 +39,7 @@ def collect_and_copy_best_structures():
 
 
 # a unique string to identify the set of directories to look into
-DIR_IDENTIFIER = 'CENV0-8'
+DIR_IDENTIFIER = ('CENV0-8', '20x20')
 # a unique string to identify the name of the files to be copied
 FILE_IDENTIFIER = 'best_eval_performance_n_structure'
 # the name of the directory where the best structures are saved
