@@ -7,6 +7,7 @@ from spinup import EpochLogger
 from spinup.utils.logx import restore_tf_graph
 import gym
 import flexibility
+from spinup.utils.custom_utils import get_custom_env_fn
 
 
 def load_policy(fpath, itr='last', deterministic=False, eval_temp=1.0, use_temp=True, env_name=None):
@@ -46,7 +47,8 @@ def load_policy(fpath, itr='last', deterministic=False, eval_temp=1.0, use_temp=
         except:
             env = None
     else:
-        env = (lambda: gym.make(env_name))()
+        # env = (lambda: gym.make(env_name))()
+        env = get_custom_env_fn(env_name)()
 
     return env, get_action
 
