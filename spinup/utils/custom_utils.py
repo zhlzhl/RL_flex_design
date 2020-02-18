@@ -62,7 +62,7 @@ def eval_and_save_best_model(
                                                                                        logger=eval_logger,
                                                                                        tb_logger=tb_logger,
                                                                                        epoch=epoch,
-                                                                                       max_ep_len=100,
+                                                                                       max_ep_len=70,
                                                                                        render=True,
                                                                                        n_sample=n_sample,
                                                                                        n_episodes=num_episodes)
@@ -146,7 +146,7 @@ def get_custom_env_fn(env_name):
     return CustomFlexibilityEnv
 
 def run_policy_with_custom_logging(env_name, get_action, logger, tb_logger, epoch,
-                                   max_ep_len=None, n_episodes=50, render=True, n_sample=5000):
+                                   max_ep_len=None, n_episodes=150, render=True, n_sample=5000):
     # env = (lambda: gym.make(env_name))()
     env = get_custom_env_fn(env_name)()
 
