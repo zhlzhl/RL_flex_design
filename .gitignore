@@ -11,6 +11,8 @@ _build/
 
 openai-education-spinningup-latest.pdf
 
+backup_scriptsNlogs/
+
 dist/
 
 gurobi.log
