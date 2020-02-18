@@ -26,6 +26,7 @@ def run_experiment(args):
     eg.add('train_v_iters', args.train_v_iters)
     eg.add('eval_temp', args.eval_temp)
     eg.add('train_starting_temp', args.train_starting_temp)
+    eg.add('gamma', args.gamma)
 
 
 
@@ -67,6 +68,8 @@ if __name__ == '__main__':
     parser.add_argument("--train_starting_temp", type=float, default=1.0,
                         help="starting temperature used during training. If larger than 1.0, training temperature "
                              "decreases to 1.0 in the first 1/3 of epochs. ")
+    parser.add_argument("--gamma", type=float, default=0.99,
+                        help="Discount factor of PPO. ")
 
     args = parser.parse_args()
 

@@ -324,8 +324,8 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
                 # for saving the best models and performances during train and evaluate
                 # only start to save best models after half training epochs
                 if epoch < epochs / 2 + 1:
-                    best_eval_AverageEpRet = 0.0
-                    best_eval_StdEpRet = 1.0e20
+                    best_eval_AverageEpRet = -0.05  # a negative value so that best model is saved at least once.
+                    best_eval_StdEpRet = 1.0e30
                     save = False
                 else:
                     save = True
