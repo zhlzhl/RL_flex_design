@@ -203,7 +203,7 @@ def call_experiment(exp_name, thunk, seed=0, num_cpu=1, data_dir=None,
     plot_cmd = 'python -m spinup.run plot ' + logger_kwargs['output_dir']
     plot_cmd = colorize(plot_cmd, 'green')
 
-    test_cmd = 'python -m spinup.run test_policy ' + logger_kwargs['output_dir']
+    test_cmd = 'python -m spinup.run test_policy ' + logger_kwargs['output_dir'] + ' --use_temp --env_name {}'.format(kwargs['env_name'])
     test_cmd = colorize(test_cmd, 'green')
 
     output_msg = '\n' * 5 + '=' * DIV_LINE_WIDTH + '\n' + dedent("""\
