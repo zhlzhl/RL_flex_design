@@ -53,12 +53,14 @@ def save_best_eval(best_performance, best_structure, epoch, env_name, log_dir):
 # to be used for testing policy during training
 def eval_and_save_best_model(
         best_eval_AverageEpRet, best_eval_StdEpRet, eval_logger, train_logger, tb_logger, epoch,
-        env_name, get_action, render=True, n_sample=5000, num_episodes=50, save=False
+        env_name, env_version, get_action, render=True, n_sample=5000, num_episodes=50, save=False
 ):
     # for envs with different versions of different n_sample, choose a corresponding env with indicated n_sample for
     # testing
     eval_env_name = get_new_env_name(env_name, n_sample)
-    mean, std, _, _, best_performance, best_structure = run_policy_with_custom_logging(eval_env_name, get_action,
+    mean, std, _, _, best_performance, best_structure = run_policy_with_custom_logging(eval_env_name,
+                                                                                       env_version,
+                                                                                       get_action,
                                                                                        logger=eval_logger,
                                                                                        tb_logger=tb_logger,
                                                                                        epoch=epoch,
@@ -75,7 +77,7 @@ def eval_and_save_best_model(
             # env = (lambda: gym.make(env_name))()
             # train_logger.save_state({'env': env}, itr=999999)
             # eval_env = (lambda: gym.make(eval_env_name))()
-            eval_env = get_custom_env_fn(eval_env_name)()
+            eval_env = get_custom_env_fn(eval_env_name, env_version)()
             train_logger.save_state({'env': eval_env}, itr=999999)
 
             # save the best_performance and best_structure across the different runs during evaluation
@@ -133,22 +135,22 @@ def _parse_attributes(env_name):
     return n_plant, n_product, target_arcs, n_sample
 
 
-def get_custom_env_fn(env_name):
+def get_custom_env_fn(env_name, env_version=1):
     n_plant, n_product, target_arcs, n_sample = _parse_attributes(env_name)
 
     class CustomFlexibilityEnv(FlexibilityEnv):
         def __init__(self):
             super().__init__(n_plant=n_plant, n_product=n_product,
-                             target_arcs=target_arcs, n_sample=n_sample)
-            print('using custom env: {} | n_plant: {} | n_product: {} | target_arcs: {} | n_sample: {}'
-                  .format(env_name, n_plant, n_product, target_arcs, n_sample))
+                             target_arcs=target_arcs, n_sample=n_sample, env_version=env_version)
+            print('using custom env: {} | n_plant: {} | n_product: {} | target_arcs: {} | n_sample: {} | env_version: {}'
+                  .format(env_name, n_plant, n_product, target_arcs, n_sample, env_version))
 
     return CustomFlexibilityEnv
 
-def run_policy_with_custom_logging(env_name, get_action, logger, tb_logger, epoch,
+def run_policy_with_custom_logging(env_name, env_version, get_action, logger, tb_logger, epoch,
                                    max_ep_len=None, n_episodes=150, render=True, n_sample=5000):
     # env = (lambda: gym.make(env_name))()
-    env = get_custom_env_fn(env_name)()
+    env = get_custom_env_fn(env_name, env_version)()
 
     n_plant = env.n_plant
     n_product = env.n_product

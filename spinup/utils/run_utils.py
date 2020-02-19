@@ -160,7 +160,7 @@ def call_experiment(exp_name, thunk, seed=0, num_cpu=1, data_dir=None,
             env_name = kwargs['env_name']
             # if 'use_custom_env' in kwargs:
             #     if kwargs['use_custom_env']:
-            kwargs['env_fn'] = get_custom_env_fn(env_name)
+            kwargs['env_fn'] = get_custom_env_fn(env_name, env_version=kwargs['env_version'])
             #     else:
             #         kwargs['env_fn'] = lambda: gym.make(env_name)
             # else:
@@ -203,7 +203,9 @@ def call_experiment(exp_name, thunk, seed=0, num_cpu=1, data_dir=None,
     plot_cmd = 'python -m spinup.run plot ' + logger_kwargs['output_dir']
     plot_cmd = colorize(plot_cmd, 'green')
 
-    test_cmd = 'python -m spinup.run test_policy ' + logger_kwargs['output_dir'] + ' --use_temp --env_name {}'.format(kwargs['env_name'])
+    test_cmd = 'python -m spinup.run test_policy ' + \
+               logger_kwargs['output_dir'] + \
+               ' --use_temp --env_name {} --env_version {}'.format(kwargs['env_name'], kwargs['env_version'])
     test_cmd = colorize(test_cmd, 'green')
 
     output_msg = '\n' * 5 + '=' * DIV_LINE_WIDTH + '\n' + dedent("""\

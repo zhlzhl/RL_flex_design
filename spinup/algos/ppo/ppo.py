@@ -103,7 +103,7 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
         steps_per_epoch=4000, epochs=50, gamma=0.99, clip_ratio=0.2, pi_lr=3e-4,
         vf_lr=1e-3, train_pi_iters=80, train_v_iters=80, lam=0.97, max_ep_len=1000,
         target_kl=0.01, logger_kwargs=dict(), save_freq=10, custom_h=None, eval_episodes=50,
-        do_checkpoint_eval=False, env_name=None, eval_temp=1.0, train_starting_temp=1.0):
+        do_checkpoint_eval=False, env_name=None, eval_temp=1.0, train_starting_temp=1.0, env_version=1):
     """
 
     Args:
@@ -294,6 +294,7 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
             ep_len += 1
 
             terminal = d or (ep_len == max_ep_len)
+
             if terminal or (t == local_steps_per_epoch - 1):
                 if not (terminal):
                     print('Warning: trajectory cut off by epoch at %d steps.' % ep_len)
@@ -345,6 +346,7 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
                     # the env_name is passed in so that to create an env when and where it is needed. This is to
                     # logx.save_state() error where an env pointer cannot be pickled
                     env_name=env_name,
+                    env_version=env_version,
                     get_action=lambda x: sess.run(pi, feed_dict={x_ph: x[None, :],
                                                                  temperature_ph: eval_temp})[0],
                     n_sample=env.n_sample if epoch < epochs / 2 else 5000,

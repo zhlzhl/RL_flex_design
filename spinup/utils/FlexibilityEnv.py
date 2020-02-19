@@ -176,6 +176,13 @@ def render_figure(fig):
     return pyglet.image.ImageData(w, h, 'RGBA', buffer.getvalue(), -4 * w)
 
 
+def _terminated(self):
+    total_arcs_after_step = np.sum(self.adjacency_matrix)
+    env1_terminated = (self.env_version == 1 and total_arcs_after_step == self.target_arcs)
+    env2_terminated = (self.env_version == 2 and self.step_count == self.target_arcs)
+    return env1_terminated or env2_terminated
+
+
 class FlexibilityEnv(gym.Env):
     metadata = {'render.modes': ['human']}
 
@@ -189,6 +196,7 @@ class FlexibilityEnv(gym.Env):
             std_mean_ratio=0.8,
             reward_shaping="BASIC",
             arc_probability_numerator=0.0,
+            env_version=1
     ):
         self.n_plant = n_plant
         self.n_product = n_product
@@ -199,6 +207,10 @@ class FlexibilityEnv(gym.Env):
         self.adjacency_matrix = np.random.choice(np.arange(0, 2), size=(self.n_plant, self.n_product), p=[0.9, 0.1])
         self.reward_shaping = reward_shaping
         self.arc_probability_numerator = arc_probability_numerator
+
+        # change for env2
+        self.step_count = 0  # to count the number of steps that has been taken
+        self.env_version = env_version
 
         # Env variables
         self.action_dim = n_plant * n_product
@@ -217,6 +229,7 @@ class FlexibilityEnv(gym.Env):
     def step(self, action):
         r = 0
         done = False
+        self.step_count += 1
 
         assert not np.sum(self.adjacency_matrix) == self.target_arcs, \
             print("in env.step(). It seems target_arcs is already met but still is stepping. adjacency_matrix: {}, "
@@ -231,12 +244,12 @@ class FlexibilityEnv(gym.Env):
         self.adjacency_matrix[row_index, col_index] = (self.adjacency_matrix[row_index, col_index] + 1) % 2
 
         # reward
-        total_arcs_after_step = np.sum(self.adjacency_matrix)
         if self.reward_shaping == "BASIC":
-            if total_arcs_after_step == self.target_arcs:
+            if _terminated(self):
                 # evaluate structure performance
                 r, _ = expected_sales_for_structure(self.adjacency_matrix, self.n_sample, self.capacity,
                                                     self.std_mean_ratio)
+                done = True
 
         elif self.reward_shaping == "SALES_INCREMENT":
             # evaluate structure performance
@@ -245,22 +258,23 @@ class FlexibilityEnv(gym.Env):
             r = sales - self.expected_sales
             self.expected_sales = sales
 
-        # print("in env.step(). action is {} arc({}, {}). reward is {}".format(
-        #     ('+' if self.adjacency_matrix[row_index, col_index] == 1 else '-'),
-        #     row_index, col_index, r))
-
-        # done?
-        if total_arcs_after_step == self.target_arcs:
-            done = True
+            # done?
+            if _terminated(self):
+                done = True
 
         s_ = np.copy(np.squeeze(self.adjacency_matrix.reshape(1, -1)))
 
         return s_, r, done, {}
 
     def reset(self):
+        # reset adjacency_matrix
         self.adjacency_matrix = np.random.choice(2, size=(self.n_plant, self.n_product),
                                                  p=[1.0 - self.arc_probability_numerator / self.n_plant,
                                                     self.arc_probability_numerator / self.n_plant])
+
+        # reset step count
+        self.step_count = 0
+
         if self.reward_shaping in ("SALES_INCREMENT", "VR"):
             self.expected_sales, _ = expected_sales_for_structure(self.adjacency_matrix, self.n_sample,
                                                                   self.capacity, self.std_mean_ratio)
@@ -318,8 +332,6 @@ class Viewer(pyglet.window.Window):
         buffer = BytesIO()
         canvas.print_raw(buffer, dpi=dpi_res)
         self.image = pyglet.image.ImageData(w, h, 'RGBA', buffer.getvalue(), -4 * w)
-
-
 
 
 # below are classes of FlexibilityEnv 10x10 with target arcs in [16, 36], with step=2 including 36.
@@ -602,8 +614,6 @@ class FlexibilityEnv20x20T60_SP10(FlexibilityEnv):
         super().__init__(n_plant=20, n_product=20, target_arcs=60, n_sample=10)
 
 
-
-
 # below is FlexibilityEnv20x20Tn_SP1 for n in [20, 60] with step=4
 class FlexibilityEnv20x20T20_SP1(FlexibilityEnv):
     def __init__(self):
@@ -661,7 +671,6 @@ class FlexibilityEnv20x20T60_SP1(FlexibilityEnv):
 
 
 if __name__ == '__main__':
-
     ### calculate expected sales of structure with full flexibility 10x10
     structure = np.ones((10, 10))
     n_sample, capacity, std_mean_ratio = 20000, 100.0, 0.4
@@ -677,7 +686,6 @@ if __name__ == '__main__':
     print("Expected sales for 20x20 full flexibility with capacity {}, n_sample {}, and std_mean_ratio {} is: {} "
           "with std {}"
           .format(capacity, n_sample, std_mean_ratio, mean, std))
-
 
     # ### testing whether env.close() works
     # env = FlexibilityEnv(n_plant=10, n_product=10, target_arcs=20)
