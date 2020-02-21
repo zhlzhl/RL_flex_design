@@ -69,6 +69,16 @@ def eval_and_save_best_model(
                                                                                        n_sample=n_sample,
                                                                                        n_episodes=num_episodes)
 
+    # # logs for debugging purpose
+    # eval_logger.log("epoch {}, to save? {}".format(epoch, save), color='white')
+    # if save:
+    #     eval_logger.log('Before eval | epoch {} | best_eval_AverageEpRet {} | best_eval_StdEpRet {}'
+    #                     .format(epoch, best_eval_AverageEpRet, best_eval_StdEpRet), color='white')
+    #     eval_logger.log('After eval | epoch {} | mean {} | std {}'
+    #                     .format(epoch, mean, std), color='white')
+    #     eval_logger.log('best_eval_AverageEpRet < mean {} | std <= best_eval_StdEpRet * 1.5 {} | save {}'.
+    #                     format(best_eval_AverageEpRet < mean, std <= best_eval_StdEpRet * 1.5, save))
+
     if best_eval_AverageEpRet < mean:
         best_eval_AverageEpRet = mean
         if (std <= best_eval_StdEpRet * 1.5) and save:
@@ -142,10 +152,12 @@ def get_custom_env_fn(env_name, env_version=1):
         def __init__(self):
             super().__init__(n_plant=n_plant, n_product=n_product,
                              target_arcs=target_arcs, n_sample=n_sample, env_version=env_version)
-            print('using custom env: {} | n_plant: {} | n_product: {} | target_arcs: {} | n_sample: {} | env_version: {}'
-                  .format(env_name, n_plant, n_product, target_arcs, n_sample, env_version))
+            print(
+                'using custom env: {} | n_plant: {} | n_product: {} | target_arcs: {} | n_sample: {} | env_version: {}'
+                .format(env_name, n_plant, n_product, target_arcs, n_sample, env_version))
 
     return CustomFlexibilityEnv
+
 
 def run_policy_with_custom_logging(env_name, env_version, get_action, logger, tb_logger, epoch,
                                    max_ep_len=None, n_episodes=150, render=True, n_sample=5000):
