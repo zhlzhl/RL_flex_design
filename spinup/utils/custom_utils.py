@@ -44,16 +44,16 @@ def get_stats(logger, key, with_min_and_max=True):
         return stats[0], None, None, None
 
 
-def save_best_eval(best_performance, best_structure, epoch, env_name, log_dir):
+def save_best_eval(best_performance, best_structure, epoch, env_name, log_dir, seed):
     pickle_data = (best_performance, best_structure, epoch)
-    with open(os.path.join(log_dir, "best_eval_performance_n_structure_{}.pkl".format(env_name)), 'wb') as f:
+    with open(os.path.join(log_dir, "best_eval_performance_n_structure_{}_s{}.pkl".format(env_name, seed)), 'wb') as f:
         pickle.dump(pickle_data, f)
 
 
 # to be used for testing policy during training
 def eval_and_save_best_model(
         best_eval_AverageEpRet, best_eval_StdEpRet, eval_logger, train_logger, tb_logger, epoch,
-        env_name, env_version, get_action, render=True, n_sample=5000, num_episodes=50, save=False
+        env_name, env_version, get_action, render=True, n_sample=5000, num_episodes=50, save=False, seed=0
 ):
     # for envs with different versions of different n_sample, choose a corresponding env with indicated n_sample for
     # testing
@@ -91,7 +91,7 @@ def eval_and_save_best_model(
             train_logger.save_state({'env': eval_env}, itr=999999)
 
             # save the best_performance and best_structure across the different runs during evaluation
-            save_best_eval(best_performance, best_structure, epoch, env_name, log_dir=eval_logger.output_dir)
+            save_best_eval(best_performance, best_structure, epoch, env_name, log_dir=eval_logger.output_dir, seed=seed)
 
             del eval_env
 

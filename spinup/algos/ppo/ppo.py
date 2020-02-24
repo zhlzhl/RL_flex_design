@@ -349,7 +349,8 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
                     n_sample=env.n_sample if epoch < epochs / 2 else 5000,
                     # number of samples to draw when simulate demand
                     num_episodes=eval_episodes,
-                    save=save
+                    save=save,
+                    seed=seed
                 )
 
         # Perform PPO update!
