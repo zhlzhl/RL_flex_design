@@ -181,41 +181,57 @@ def greedy(initial_design, capacity_vec, demand_vec, profit_mat, original_profit
     return arc_index, original_profit+incremental_profit
 
 
-def evaluate(design, capacity_vec, demand_vec, profit_mat):
-#Set up the basic structure of the second stage problem
-    
+def _evaluate_single_structure(design, capacity_vec, demand_vec, profit_mat):
     X = design.copy()
     num_capacity, num_samples = capacity_vec.shape
     num_demand = len(demand_vec)
-    
+
     plants = range(num_capacity)
     products = range(num_demand)
-        
+
     m = Model('MaxProfit')
-    f = {}; cs ={}; ct={}; #f is the flow variable, b is the lost sales variable, cs is the (supply) plant constraints, ct is the (demand) product constraints
-    ub={}
+    f = {};
+    cs = {};
+    ct = {};  # f is the flow variable, b is the lost sales variable, cs is the (supply) plant constraints, ct is the (demand) product constraints
+    ub = {}
     for j in range(num_demand):
         for i in range(num_capacity):
-            f[i,j] = m.addVar(name='f_%s' %i + '%s' %j, ub=X[i,j]*10e30)
-            f[i,j].setAttr(GRB.attr.Obj, profit_mat[i,j])
+            f[i, j] = m.addVar(name='f_%s' % i + '%s' % j, ub=X[i, j] * 10e30)
+            f[i, j].setAttr(GRB.attr.Obj, profit_mat[i, j])
     m.update()
     for i in range(num_capacity):
-        cs[i] = m.addConstr(quicksum(f[i,j] for j in products) <= 0, name='cs_%s' %i)
+        cs[i] = m.addConstr(quicksum(f[i, j] for j in products) <= 0, name='cs_%s' % i)
     for j in range(num_demand):
-        ct[j] = m.addConstr(quicksum(f[i,j] for i in plants) <= 0, name='ct_%s' %j)
+        ct[j] = m.addConstr(quicksum(f[i, j] for i in plants) <= 0, name='ct_%s' % j)
     m.update()
     m.setAttr("ModelSense", GRB.MAXIMIZE)
     m.setParam('OutputFlag', 0)
-    
+
     A = np.zeros((num_capacity, num_demand))
 
     samp_profit = np.zeros(num_samples)
-    for s in range(num_samples):    
+    for s in range(num_samples):
         for j in range(num_demand):
-            ct[j].setAttr(GRB.attr.RHS, demand_vec[j,s])
+            ct[j].setAttr(GRB.attr.RHS, demand_vec[j, s])
         for i in range(num_capacity):
-            cs[i].setAttr(GRB.attr.RHS, capacity_vec[i,s])
+            cs[i].setAttr(GRB.attr.RHS, capacity_vec[i, s])
         m.optimize()
-        samp_profit[s]=m.objVal
-            
+        samp_profit[s] = m.objVal
+
     return np.average(samp_profit)
+
+
+def evaluate(design, capacity_vec, demand_vec, profit_mat):
+#Set up the basic structure of the second stage problem
+    if isinstance(design, list):
+        perf_list = []
+        for structure in design:
+            perf_list.append(_evaluate_single_structure(structure, capacity_vec, demand_vec, profit_mat))
+
+        print("performance list: {}".format(perf_list))
+        perf = max(perf_list)
+
+    else:
+        perf = _evaluate_single_structure(design, capacity_vec, demand_vec, profit_mat)
+
+    return np.average(perf)
