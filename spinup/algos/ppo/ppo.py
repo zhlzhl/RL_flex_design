@@ -278,6 +278,13 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
     start_time = time.time()
     o, r, d, ep_ret, ep_len = env.reset(), 0, False, 0, 0
 
+    # initialize variables for keeping track of BEST eval performance
+    best_eval_AverageEpRet = -0.05  # a negative value so that best model is saved at least once.
+    best_eval_StdEpRet = 1.0e30
+
+    # save is used to only allow saving BEST models after half of training epochs
+    save = False
+
     # Main loop: collect experience in env and update/log each epoch
     for epoch in range(epochs):
         current_temp = _get_current_temperature(epoch, epochs, train_starting_temp)
@@ -320,16 +327,6 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
                 # 2) the best rl model with parameters
                 # 3) a pickle file "best_eval_performance_n_structure" storing best_performance, best_structure and epoch
                 # note that 1) and 2) are spinningup defaults, and 3) is a custom save
-
-                # for saving the best models and performances during train and evaluate
-                # only start to save best models after half training epochs
-                if epoch < epochs / 2 + 1:
-                    best_eval_AverageEpRet = -0.05  # a negative value so that best model is saved at least once.
-                    best_eval_StdEpRet = 1.0e30
-                    save = False
-                else:
-                    save = True
-
                 best_eval_AverageEpRet, best_eval_StdEpRet = eval_and_save_best_model(
                     best_eval_AverageEpRet,
                     best_eval_StdEpRet,
@@ -355,6 +352,13 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
 
         # Perform PPO update!
         update()
+
+        # for saving the best models and performances during train and evaluate
+        # only start to save best models after half training epochs
+        if epoch == np.ceil(epochs / 2):
+            best_eval_AverageEpRet = -0.05  # a negative value so that best model is saved at least once.
+            best_eval_StdEpRet = 1.0e30
+            save = True
 
         # # # Log into tensorboard
         log_key_to_tb(tb_logger, logger, epoch, key="EpRet", with_min_and_max=True)
