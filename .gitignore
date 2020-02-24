@@ -24,3 +24,5 @@ spinup/algos/__init__.pyc
 spinup/algos/ddpg/__init__.pyc
 
 spinup/algos/ddpg/ddpg.pyc
+
+*.7z
