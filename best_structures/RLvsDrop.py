@@ -110,7 +110,7 @@ if __name__ == "__main__":
         drop_perfs[index] = evaluate(subtract_structs[index], cap_vec, demand_test, profit_mat)
         print("index: {} | RL: {} | drop: {}".format(index, lei_perfs[index], drop_perfs[index]))
 
-    with open("RSvsDrop.pickle", 'wb') as f:
+    with open("RLvsDrop.pickle", 'wb') as f:
         pickle.dump((lei_perfs, drop_perfs), f)
     print("Performance evaluation is done. Saved to RSvsDrop.pickle.")
 
@@ -121,6 +121,6 @@ if __name__ == "__main__":
     # ax.set(xlabel='sparsity', ylabel='avg profit', title='Comparison')
     ax.grid()
 
-    fig.savefig("RSvsDROP.png")
+    fig.savefig("RLvsDROP.png")
     print('Plotted and saved figuer to RSvsDROP.png.')
     plt.show()
