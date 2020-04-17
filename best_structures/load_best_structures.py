@@ -1,6 +1,7 @@
 import numpy as np
 import os
 import pickle
+from best_structures.exp_settings import *
 
 
 def load_experiment(experiment):
@@ -31,5 +32,4 @@ def load_experiment(experiment):
 
 
 if __name__ == "__main__":
-    experiment = '10x10'
-    best_structures = load_experiment(experiment)
+    best_structures = load_experiment(EXPERIMENT)

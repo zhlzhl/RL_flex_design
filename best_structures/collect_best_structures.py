@@ -3,6 +3,8 @@ import os
 import pickle
 from pathlib import Path
 import shutil
+from best_structures.exp_settings import *
+
 
 
 # looking for filenames starting with "best_eval_performance_n_structure", in sub-directory "simple_save999999" of
@@ -38,13 +40,7 @@ def collect_and_copy_best_structures():
                                                     print('copied {}'.format(file_to_copy))
 
 
-# a unique string to identify the set of directories to look into
-DIR_IDENTIFIER = ('CENV0-8', 'GM0-9999', '10x10')
-EXCLUDE = ('SPTEST')
-# a unique string to identify the name of the files to be copied
-FILE_IDENTIFIER = 'best_eval_performance_n_structure'
-# the name of the directory where the best structures are saved
-SAVED_MODEL_DIR_NAME = ('simple_save999999', 'custom_save999999')
+
 
 if __name__ == "__main__":
     collect_and_copy_best_structures()

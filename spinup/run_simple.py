@@ -27,6 +27,7 @@ def run_experiment(args):
     eg.add('eval_temp', args.eval_temp)
     eg.add('train_starting_temp', args.train_starting_temp)
     eg.add('gamma', args.gamma)
+    eg.add('env_version', args.env_version)
 
 
 
@@ -47,20 +48,13 @@ if __name__ == '__main__':
     parser.add_argument('--save_freq', type=int, default=5000)
     parser.add_argument('--env_name', type=str, default="Flexibility-v0")
     parser.add_argument('--exp_name', type=str, default='Flexibility-PPO')
-    # parser.add_argument('--n_sample', type=int, default=10,
-    #                     help="DEPRECATED with implementation of --use_custom_env. number of samples of demand when "
-    #                          "evaluating structure performance for the "
-    #                          "first half of "
-    #                          "training epochs. n_sample = 5000 is used for the 2nd half of the epochs.")
     parser.add_argument('--eval_episodes', type=int, default=50,
                         help="number of episodes to run during evaluation.")
 
-    # added custom_h to specify hidden layers with different sizes, e.g., "1024-128".
-    parser.add_argument('--custom_h', nargs='+', default=None)
+    parser.add_argument('--custom_h', nargs='+', default=None,
+                        help="to specify hidden layers with different sizes, e.g., 1024-128.")
     parser.add_argument('--act', type=str, default="tf.nn.relu")
     parser.add_argument('--do_checkpoint_eval', action='store_true', help="Whether to do evaluation per save frequency")
-    # parser.add_argument('--use_custom_env', action='store_true',
-    #                     help="whether to use custom env instead of env defined in gym format")
     parser.add_argument('--train_pi_iters', type=int, default=80, help="# of iterations per each training step for pi")
     parser.add_argument('--train_v_iters', type=int, default=80, help="# of iterations per each training step for v")
     parser.add_argument("--eval_temp", type=float, default=1.0,
@@ -68,8 +62,12 @@ if __name__ == '__main__':
     parser.add_argument("--train_starting_temp", type=float, default=1.0,
                         help="starting temperature used during training. If larger than 1.0, training temperature "
                              "decreases to 1.0 in the first 1/3 of epochs. ")
-    parser.add_argument("--gamma", type=float, default=0.99,
-                        help="Discount factor of PPO. ")
+    parser.add_argument("--gamma", type=float, default=0.99, help="Discount factor of PPO. ")
+
+    parser.add_argument("--env_version", type=int, default=1,
+                        help="version of env. env1 is both add/drop until reached target_arcs. env2 is both add/drop "
+                             "until taken target_arcs steps.")
+
 
     args = parser.parse_args()
 

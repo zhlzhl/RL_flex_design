@@ -10,7 +10,7 @@ import flexibility
 from spinup.utils.custom_utils import get_custom_env_fn
 
 
-def load_policy(fpath, itr='last', deterministic=False, eval_temp=1.0, use_temp=True, env_name=None):
+def load_policy(fpath, itr='last', deterministic=False, eval_temp=1.0, use_temp=True, env_name=None, env_version=1):
     # handle which epoch to load from
     if itr == 'last':
         saves = [int(x[11:]) for x in os.listdir(fpath) if 'simple_save' in x and len(x) > 11]
@@ -48,7 +48,7 @@ def load_policy(fpath, itr='last', deterministic=False, eval_temp=1.0, use_temp=
             env = None
     else:
         # env = (lambda: gym.make(env_name))()
-        env = get_custom_env_fn(env_name)()
+        env = get_custom_env_fn(env_name, env_version)()
 
     return env, get_action
 
@@ -96,11 +96,16 @@ if __name__ == '__main__':
     parser.add_argument('--use_temp', action='store_true')
     parser.add_argument('--env_name', type=str, default=None,
                         help='manually specify an env for testing policy. this is optional. ')
+    parser.add_argument('--env_version', type=int, default=1,
+                        help="version of env. env1 is both add/drop until reached target_arcs. env2 is both add/drop "
+                             "until taken target_arcs steps.")
+
     args = parser.parse_args()
     env, get_action = load_policy(args.fpath,
                                   args.itr if args.itr >= 0 else 'last',
                                   args.deterministic,
                                   args.eval_temp,
                                   use_temp=args.use_temp,
-                                  env_name=args.env_name)
+                                  env_name=args.env_name,
+                                  env_version=args.env_version)
     run_policy(env, get_action, args.len, args.episodes, not (args.norender))
