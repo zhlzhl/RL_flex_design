@@ -2,7 +2,7 @@ import os
 import os.path as osp
 
 
-EXPERIMENT = '20x20'
+EXPERIMENT = '10x10'
 
 # a unique string to identify the set of directories to look into
 DIR_IDENTIFIER = ('ENV2', EXPERIMENT)
