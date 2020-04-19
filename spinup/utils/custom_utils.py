@@ -78,7 +78,7 @@ def eval_and_save_best_model(
     #                     .format(epoch, mean, std), color='white')
     #     eval_logger.log('best_eval_AverageEpRet < mean {} | std <= best_eval_StdEpRet * 1.5 {} | save {}'.
     #                     format(best_eval_AverageEpRet < mean, std <= best_eval_StdEpRet * 1.5, save))
-
+    saved = False
     if best_eval_AverageEpRet < mean:
         best_eval_AverageEpRet = mean
         if (std <= best_eval_StdEpRet * 1.5) and save:
@@ -92,13 +92,14 @@ def eval_and_save_best_model(
 
             # save the best_performance and best_structure across the different runs during evaluation
             save_best_eval(best_performance, best_structure, epoch, env_name, log_dir=eval_logger.output_dir, seed=seed)
+            saved = True
 
             del eval_env
 
     if best_eval_StdEpRet > std:
         best_eval_StdEpRet = std
 
-    return best_eval_AverageEpRet, best_eval_StdEpRet
+    return best_eval_AverageEpRet, best_eval_StdEpRet, saved
 
 
 def get_new_env_name(env_name, n_sample):

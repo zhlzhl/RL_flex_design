@@ -285,6 +285,14 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
     # save is used to only allow saving BEST models after half of training epochs
     save = False
 
+    # below are used for early-stop. We early stop if
+    # 1) a best model has been saved, and,
+    # 2) 50 epochs have passed without a new save
+    saved = False
+    early_stop_count_started = False
+    episode_count_after_saved = 0
+
+
     # Main loop: collect experience in env and update/log each epoch
     for epoch in range(epochs):
         current_temp = _get_current_temperature(epoch, epochs, train_starting_temp)
@@ -328,7 +336,7 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
                 # 2) the best rl model with parameters
                 # 3) a pickle file "best_eval_performance_n_structure" storing best_performance, best_structure and epoch
                 # note that 1) and 2) are spinningup defaults, and 3) is a custom save
-                best_eval_AverageEpRet, best_eval_StdEpRet = eval_and_save_best_model(
+                best_eval_AverageEpRet, best_eval_StdEpRet, saved = eval_and_save_best_model(
                     best_eval_AverageEpRet,
                     best_eval_StdEpRet,
                     # a new logger is created and passed in so that the new logger can leverage the directory
@@ -357,8 +365,8 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
         update()
 
         # for saving the best models and performances during train and evaluate
-        # only start to save best models after half training epochs
-        if epoch == np.ceil(epochs / 2):
+        # only start to save best models after 1% training epochs
+        if epoch == np.ceil(epochs / 100):
             best_eval_AverageEpRet = -0.05  # a negative value so that best model is saved at least once.
             best_eval_StdEpRet = 1.0e30
             save = True
@@ -396,6 +404,24 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
         logger.log_tabular('Time', time.time() - start_time)
         logger.log_tabular('EpochTemp', current_temp)
         logger.dump_tabular()
+
+
+        # check for early stop
+        if saved:
+            # start to count the episodes elapsed after a "saved" event
+            early_stop_count_started = True
+
+            # reset the count to 0
+            episode_count_after_saved = 0
+
+        else:
+            # check whether we should count this episode, i.e., whether early_stop_count_started == True
+            if early_stop_count_started:
+                episode_count_after_saved += 1
+                if episode_count_after_saved > 50:
+                    logger.log('Early Stopped at epoch {}.'.format(epoch), color='cyan')
+                    break
+
 
 
 def _get_current_temperature(epoch, epochs, train_starting_temp):
