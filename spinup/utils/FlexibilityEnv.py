@@ -12,6 +12,7 @@ from matplotlib.figure import Figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 
 
+
 def build_base_structure(n_plant, n_product, capacity, std_mean_ratio):
     adjacency_matrix = np.zeros((n_plant, n_product))  # Adjacency Matrix
 
@@ -66,7 +67,9 @@ def expected_sales_for_structure(structure, n_sample, capacity, std_mean_ratio):
     plants = range(n_plant)
     products = range(n_product)
     samples = range(n_sample)
-    flow_profits = np.ones((n_plant, n_product))
+    # flow_profits = np.ones((n_plant, n_product))
+    np.random.seed(3)
+    flow_profits = np.random.rand(n_plant, n_product)
 
     capacity = capacity * np.ones(n_plant)  # capacity vector
     demand_mean = sum(capacity) / n_product * np.ones(n_product)  # mean demand vector
