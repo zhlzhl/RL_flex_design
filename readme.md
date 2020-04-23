@@ -9,6 +9,7 @@ Create a conda environment and
 - install Gurobi. Gurobi is needed by the Flexibility Environment 
 to evaluate rewards by solving linear programming problems. 
 - install tensorboard if it is not installed during spinningup setup. 
+- install networkx and pyglet.
 
 ## Run the codes
 The entry point of running the RL training using FlexibilityEnv is run_flexibility.py under /spinningup/spinup. 
