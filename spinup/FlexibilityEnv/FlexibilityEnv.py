@@ -61,19 +61,32 @@ def build_base_structure(n_plant, n_product, capacity, std_mean_ratio):
     return adjacency_matrix
 
 
-def expected_sales_for_structure(structure, n_sample, capacity, std_mean_ratio):
+def expected_sales_for_structure(structure, n_sample, capacity,
+                                 std_mean_ratio=None,
+                                 demand_mean=None,
+                                 demand_std=None,
+                                 flow_profits=None,
+                                 fixed_costs=None):
     # initialize for simulation and optimization
     n_plant, n_product = structure.shape
     plants = range(n_plant)
     products = range(n_product)
     samples = range(n_sample)
-    # flow_profits = np.ones((n_plant, n_product))
-    np.random.seed(3)
-    flow_profits = np.random.rand(n_plant, n_product)
 
-    capacity = capacity * np.ones(n_plant)  # capacity vector
-    demand_mean = sum(capacity) / n_product * np.ones(n_product)  # mean demand vector
-    demand_std = demand_mean * std_mean_ratio  # standard deviation vector (if needed)
+    # below is needed for env_version in (1, 2)
+    if len(capacity) == 1:
+        capacity = capacity * np.ones(n_plant) # capacity vector
+    if demand_mean is None:
+        demand_mean = sum(capacity) / n_product * np.ones(n_product)  # mean demand vector
+    if demand_std is None:
+        demand_std = demand_mean * std_mean_ratio  # standard deviation vector (if needed)
+    if flow_profits is None:
+        # flow_profits = np.ones((n_plant, n_product))
+        np.random.seed(3)
+        flow_profits = np.random.rand(n_plant, n_product)
+    if fixed_costs is None:
+        fixed_costs = np.zeros((n_plant, n_product))
+
 
     # Simulate Expected Profits
     model = Model('MaxProfit')
@@ -106,7 +119,7 @@ def expected_sales_for_structure(structure, n_sample, capacity, std_mean_ratio):
     # simulate n_sample number of demands
     # for each demand, update constraint_product RHS and run model optimization to get the max profit for the demand
     for sample in samples:
-        demand = np.random.normal(demand_mean, demand_std, n_product)
+        demand = np.random.normal(demand_mean, demand_std)
         # truncate demand at two standard deviations
         demand = np.maximum(demand, demand_mean - 2 * demand_std)
         demand = np.minimum(demand, demand_mean + 2 * demand_std)
@@ -116,7 +129,7 @@ def expected_sales_for_structure(structure, n_sample, capacity, std_mean_ratio):
         for j in products:
             constraint_product[j].setAttr(GRB.attr.RHS, demand[j])
         model.optimize()
-        sample_profits[sample] = model.objVal
+        sample_profits[sample] = model.objVal - np.sum(np.multiply(fixed_costs, structure))
 
     return np.average(sample_profits), np.std(sample_profits)
 
@@ -183,7 +196,8 @@ def _terminated(self):
     total_arcs_after_step = np.sum(self.adjacency_matrix)
     env1_terminated = (self.env_version == 1 and total_arcs_after_step == self.target_arcs)
     env2_terminated = (self.env_version == 2 and self.step_count == self.target_arcs)
-    return env1_terminated or env2_terminated
+    env3_terminated = (self.env_version == 3 and self.step_count == self.allowed_steps)
+    return env1_terminated or env2_terminated or env3_terminated
 
 
 class FlexibilityEnv(gym.Env):
@@ -195,17 +209,23 @@ class FlexibilityEnv(gym.Env):
             n_product=10,
             target_arcs=15,
             n_sample=5000,
-            capacity=100,
-            std_mean_ratio=0.8,
+            capacity_mean=None,
+            capacity_std=None,
             reward_shaping="BASIC",
             arc_probability_numerator=0.0,
-            env_version=1
+            env_version=1,
+            demand_mean=None,
+            demand_std=None,
+            profit_matrix=None,
+            fixed_costs=None,
+            starting_structure=None,
+            std_mean_ratio=None
+
     ):
         self.n_plant = n_plant
         self.n_product = n_product
         self.target_arcs = target_arcs
         self.n_sample = n_sample
-        self.capacity = capacity
         self.std_mean_ratio = std_mean_ratio
         self.adjacency_matrix = np.random.choice(np.arange(0, 2), size=(self.n_plant, self.n_product), p=[0.9, 0.1])
         self.reward_shaping = reward_shaping
@@ -214,6 +234,20 @@ class FlexibilityEnv(gym.Env):
         # change for env2
         self.step_count = 0  # to count the number of steps that has been taken
         self.env_version = env_version
+
+        # change for env3
+        self.capacity_mean = capacity_mean
+        self.capacity_std = capacity_std
+        self.demand_mean = demand_mean
+        self.demand_std = demand_std
+        assert profit_matrix.shape == fixed_costs.shape
+        assert profit_matrix.shape == starting_structure.shape
+        self.profit_matrix = profit_matrix
+        self.fixed_costs = fixed_costs
+        self.starting_structure = starting_structure
+        self.allowed_steps = int(self.target_arcs - np.sum(starting_structure))
+        assert self.allowed_steps > 0, print("target_arcs = {}, sum(starting_structure) = {}"
+                                             .format(self.target_arcs, np.sum(starting_structure)))
 
         # Env variables
         self.action_dim = n_plant * n_product
@@ -227,7 +261,8 @@ class FlexibilityEnv(gym.Env):
         # added for reward_shaping SALES_INCREMENT
         if self.reward_shaping in ("SALES_INCREMENT"):
             self.expected_sales, _ = expected_sales_for_structure(self.adjacency_matrix, self.n_sample,
-                                                                  self.capacity, self.std_mean_ratio)
+                                                                  self.capacity_mean,
+                                                                  std_mean_ratio=self.std_mean_ratio)
 
     def step(self, action):
         r = 0
@@ -235,7 +270,7 @@ class FlexibilityEnv(gym.Env):
         self.step_count += 1
 
         assert not np.sum(self.adjacency_matrix) == self.target_arcs, \
-            print("in env.step(). It seems target_arcs is already met but still is stepping. adjacency_matrix: {}, "
+            print("in env.step(). It seems target_arcs is already met but still is stepping. adjacency_matrix: \n{}, "
                   "target_arcs: {}".format(self.adjacency_matrix, self.target_arcs))
 
         # action is the index of the link to be changed. If the link already exists, then the action is to remove it,
@@ -250,14 +285,22 @@ class FlexibilityEnv(gym.Env):
         if self.reward_shaping == "BASIC":
             if _terminated(self):
                 # evaluate structure performance
-                r, _ = expected_sales_for_structure(self.adjacency_matrix, self.n_sample, self.capacity,
-                                                    self.std_mean_ratio)
+                if self.env_version in (1, 2):
+                    r, _ = expected_sales_for_structure(self.adjacency_matrix, self.n_sample, self.capacity_mean,
+                                                        std_mean_ratio=self.std_mean_ratio)
+                else:  # env_version = 3
+                    r, _ = expected_sales_for_structure(self.adjacency_matrix, self.n_sample,
+                                                        self.capacity_mean,
+                                                        demand_mean=self.demand_mean,
+                                                        demand_std=self.demand_std,
+                                                        flow_profits=self.profit_matrix,
+                                                        fixed_costs=self.fixed_costs)
                 done = True
 
         elif self.reward_shaping == "SALES_INCREMENT":
             # evaluate structure performance
-            sales, _ = expected_sales_for_structure(self.adjacency_matrix, self.n_sample, self.capacity,
-                                                    self.std_mean_ratio)
+            sales, _ = expected_sales_for_structure(self.adjacency_matrix, self.n_sample, self.capacity_mean,
+                                                    std_mean_ratio=self.std_mean_ratio)
             r = sales - self.expected_sales
             self.expected_sales = sales
 
@@ -271,16 +314,20 @@ class FlexibilityEnv(gym.Env):
 
     def reset(self):
         # reset adjacency_matrix
-        self.adjacency_matrix = np.random.choice(2, size=(self.n_plant, self.n_product),
-                                                 p=[1.0 - self.arc_probability_numerator / self.n_plant,
-                                                    self.arc_probability_numerator / self.n_plant])
+        if self.env_version in (1, 2):
+            self.adjacency_matrix = np.random.choice(2, size=(self.n_plant, self.n_product),
+                                                     p=[1.0 - self.arc_probability_numerator / self.n_plant,
+                                                        self.arc_probability_numerator / self.n_plant])
+        else:  # env_version == 3
+            self.adjacency_matrix = np.copy(self.starting_structure)
 
         # reset step count
         self.step_count = 0
 
         if self.reward_shaping in ("SALES_INCREMENT", "VR"):
             self.expected_sales, _ = expected_sales_for_structure(self.adjacency_matrix, self.n_sample,
-                                                                  self.capacity, self.std_mean_ratio)
+                                                                  self.capacity_mean,
+                                                                  std_mean_ratio=self.std_mean_ratio)
             # print("in env.reset(), A: {}".format(self.adjacency_matrix))
             # print("in env.reset(), expected sales: {}".format(self.expected_sales))
 
@@ -337,347 +384,11 @@ class Viewer(pyglet.window.Window):
         self.image = pyglet.image.ImageData(w, h, 'RGBA', buffer.getvalue(), -4 * w)
 
 
-# below are classes of FlexibilityEnv 10x10 with target arcs in [16, 36], with step=2 including 36.
-class FlexibilityEnv10x10T16(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=10, n_product=10, target_arcs=16)
-
-
-class FlexibilityEnv10x10T18(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=10, n_product=10, target_arcs=18)
-
-
-class FlexibilityEnv10x10T20(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=10, n_product=10, target_arcs=20)
-
-
-class FlexibilityEnv10x10T22(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=10, n_product=10, target_arcs=22)
-
-
-class FlexibilityEnv10x10T24(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=10, n_product=10, target_arcs=24)
-
-
-class FlexibilityEnv10x10T26(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=10, n_product=10, target_arcs=26)
-
-
-class FlexibilityEnv10x10T28(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=10, n_product=10, target_arcs=28)
-
-
-class FlexibilityEnv10x10T30(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=10, n_product=10, target_arcs=30)
-
-
-class FlexibilityEnv10x10T32(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=10, n_product=10, target_arcs=32)
-
-
-class FlexibilityEnv10x10T34(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=10, n_product=10, target_arcs=34)
-
-
-class FlexibilityEnv10x10T36(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=10, n_product=10, target_arcs=36)
-
-
-# below are classes of FlexibilityEnv 20x20 with arcs in [20, 60] with step=4
-class FlexibilityEnv20x20T20(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=20)
-
-
-class FlexibilityEnv20x20T24(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=24)
-
-
-class FlexibilityEnv20x20T28(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=28)
-
-
-class FlexibilityEnv20x20T32(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=32)
-
-
-class FlexibilityEnv20x20T36(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=36)
-
-
-class FlexibilityEnv20x20T40(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=40)
-
-
-class FlexibilityEnv20x20T44(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=44)
-
-
-class FlexibilityEnv20x20T48(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=48)
-
-
-class FlexibilityEnv20x20T52(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=52)
-
-
-class FlexibilityEnv20x20T56(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=56)
-
-
-class FlexibilityEnv20x20T60(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=60)
-
-
-# below is FlexibilityEnv20x20Tn_SP100 for n in [20, 60] with step=4
-class FlexibilityEnv20x20T20_SP100(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=20, n_sample=100)
-
-
-class FlexibilityEnv20x20T24_SP100(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=24, n_sample=100)
-
-
-class FlexibilityEnv20x20T28_SP100(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=28, n_sample=100)
-
-
-class FlexibilityEnv20x20T32_SP100(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=32, n_sample=100)
-
-
-class FlexibilityEnv20x20T36_SP100(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=36, n_sample=100)
-
-
-class FlexibilityEnv20x20T40_SP100(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=40, n_sample=100)
-
-
-class FlexibilityEnv20x20T44_SP100(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=44, n_sample=100)
-
-
-class FlexibilityEnv20x20T48_SP100(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=48, n_sample=100)
-
-
-class FlexibilityEnv20x20T52_SP100(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=52, n_sample=100)
-
-
-class FlexibilityEnv20x20T56_SP100(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=56, n_sample=100)
-
-
-class FlexibilityEnv20x20T60_SP100(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=60, n_sample=100)
-
-
-# below is FlexibilityEnv20x20Tn_SP50 for n in [20, 60] with step=4
-class FlexibilityEnv20x20T20_SP50(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=20, n_sample=50)
-
-
-class FlexibilityEnv20x20T24_SP50(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=24, n_sample=50)
-
-
-class FlexibilityEnv20x20T28_SP50(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=28, n_sample=50)
-
-
-class FlexibilityEnv20x20T32_SP50(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=32, n_sample=50)
-
-
-class FlexibilityEnv20x20T36_SP50(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=36, n_sample=50)
-
-
-class FlexibilityEnv20x20T40_SP50(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=40, n_sample=50)
-
-
-class FlexibilityEnv20x20T44_SP50(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=44, n_sample=50)
-
-
-class FlexibilityEnv20x20T48_SP50(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=48, n_sample=50)
-
-
-class FlexibilityEnv20x20T52_SP50(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=52, n_sample=50)
-
-
-class FlexibilityEnv20x20T56_SP50(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=56, n_sample=50)
-
-
-class FlexibilityEnv20x20T60_SP50(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=60, n_sample=50)
-
-
-# below is FlexibilityEnv20x20Tn_SP10 for n in [20, 60] with step=4
-class FlexibilityEnv20x20T20_SP10(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=20, n_sample=10)
-
-
-class FlexibilityEnv20x20T24_SP10(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=24, n_sample=10)
-
-
-class FlexibilityEnv20x20T28_SP10(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=28, n_sample=10)
-
-
-class FlexibilityEnv20x20T32_SP10(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=32, n_sample=10)
-
-
-class FlexibilityEnv20x20T36_SP10(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=36, n_sample=10)
-
-
-class FlexibilityEnv20x20T40_SP10(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=40, n_sample=10)
-
-
-class FlexibilityEnv20x20T44_SP10(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=44, n_sample=10)
-
-
-class FlexibilityEnv20x20T48_SP10(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=48, n_sample=10)
-
-
-class FlexibilityEnv20x20T52_SP10(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=52, n_sample=10)
-
-
-class FlexibilityEnv20x20T56_SP10(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=56, n_sample=10)
-
-
-class FlexibilityEnv20x20T60_SP10(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=60, n_sample=10)
-
-
-# below is FlexibilityEnv20x20Tn_SP1 for n in [20, 60] with step=4
-class FlexibilityEnv20x20T20_SP1(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=20, n_sample=1)
-
-
-class FlexibilityEnv20x20T24_SP1(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=24, n_sample=1)
-
-
-class FlexibilityEnv20x20T28_SP1(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=28, n_sample=1)
-
-
-class FlexibilityEnv20x20T32_SP1(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=32, n_sample=1)
-
-
-class FlexibilityEnv20x20T36_SP1(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=36, n_sample=1)
-
-
-class FlexibilityEnv20x20T40_SP1(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=40, n_sample=1)
-
-
-class FlexibilityEnv20x20T44_SP1(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=44, n_sample=1)
-
-
-class FlexibilityEnv20x20T48_SP1(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=48, n_sample=1)
-
-
-class FlexibilityEnv20x20T52_SP1(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=52, n_sample=1)
-
-
-class FlexibilityEnv20x20T56_SP1(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=56, n_sample=1)
-
-
-class FlexibilityEnv20x20T60_SP1(FlexibilityEnv):
-    def __init__(self):
-        super().__init__(n_plant=20, n_product=20, target_arcs=60, n_sample=1)
-
-
 if __name__ == '__main__':
     ### calculate expected sales of structure with full flexibility 10x10
     structure = np.ones((10, 10))
     n_sample, capacity, std_mean_ratio = 20000, 100.0, 0.4
-    mean, std = expected_sales_for_structure(structure, n_sample, capacity, std_mean_ratio)
+    mean, std = expected_sales_for_structure(structure, n_sample, capacity, std_mean_ratio=std_mean_ratio)
     print("Expected sales for 10x10 full flexibility with capacity {}, n_sample {}, and std_mean_ratio {} is: {} "
           "with std {}"
           .format(capacity, n_sample, std_mean_ratio, mean, std))
@@ -685,7 +396,7 @@ if __name__ == '__main__':
     ### calculate expected sales of structure with full flexibility 20x20
     structure = np.ones((20, 20))
     n_sample, capacity, std_mean_ratio = 20000, 100.0, 0.4
-    mean, std = expected_sales_for_structure(structure, n_sample, capacity, std_mean_ratio)
+    mean, std = expected_sales_for_structure(structure, n_sample, capacity, std_mean_ratio=std_mean_ratio)
     print("Expected sales for 20x20 full flexibility with capacity {}, n_sample {}, and std_mean_ratio {} is: {} "
           "with std {}"
           .format(capacity, n_sample, std_mean_ratio, mean, std))

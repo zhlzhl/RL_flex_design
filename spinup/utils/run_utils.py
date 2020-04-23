@@ -155,25 +155,25 @@ def call_experiment(exp_name, thunk, seed=0, num_cpu=1, data_dir=None,
     def thunk_plus():
         # Make 'env_fn' from 'env_name'
         if 'env_name' in kwargs:
-            import gym
-            import flexibility  # registers custom envs (flexibility) to gym env registry
             env_name = kwargs['env_name']
-            # if 'use_custom_env' in kwargs:
-            #     if kwargs['use_custom_env']:
-            kwargs['env_fn'] = get_custom_env_fn(env_name, env_version=kwargs['env_version'])
-            #     else:
-            #         kwargs['env_fn'] = lambda: gym.make(env_name)
-            # else:
-            #     kwargs['env_fn'] = lambda: gym.make(env_name)
+            if kwargs['env_version'] == 1 or kwargs['env_version'] == 2:
+                kwargs['env_fn'] = get_custom_env_fn(env_name, env_version=kwargs['env_version'])
+            if kwargs['env_version'] == 3:
+                kwargs['env_fn'] = get_custom_env_fn(env_name,
+                                                     env_version=kwargs['env_version'],
+                                                     target_arcs=kwargs['target_arc'],
+                                                     env_input=kwargs['env_input'],
+                                                     env_n_sample=kwargs['env_n_sample'])
 
-            # if 'use_custom_env' in kwargs:
-            #     del kwargs['use_custom_env']
+                del kwargs['target_arc'], kwargs['env_n_sample']
+
 
         # Fork into multiple processes
         mpi_fork(num_cpu)
 
         # Run thunk
         thunk(**kwargs)
+
 
     # Prepare to launch a script to run the experiment
     pickled_thunk = cloudpickle.dumps(thunk_plus)

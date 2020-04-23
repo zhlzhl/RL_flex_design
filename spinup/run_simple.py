@@ -1,8 +1,9 @@
 
 from spinup.utils.run_utils import ExperimentGrid
-from spinup import ddpg, ppo, vpg
+from spinup import ppo, vpg
+from spinup.FlexibilityEnv_input.inputload import load_FlexibilityEnv_input
 
-import gym
+import os
 import tensorflow as tf
 
 def run_experiment(args):
@@ -19,17 +20,27 @@ def run_experiment(args):
     eg.add('ac_kwargs:activation', eval(args.act), '')
     eg.add('custom_h', args.custom_h)
     eg.add('do_checkpoint_eval', args.do_checkpoint_eval)
-    # eg.add('use_custom_env', args.use_custom_env)
-    eg.add('env_name', args.env_name)
-    # eg.add('n_sample', args.n_sample)
     eg.add('eval_episodes', args.eval_episodes)
     eg.add('train_v_iters', args.train_v_iters)
     eg.add('eval_temp', args.eval_temp)
     eg.add('train_starting_temp', args.train_starting_temp)
     eg.add('gamma', args.gamma)
     eg.add('env_version', args.env_version)
+    eg.add('env_name', args.env_name)
 
+    if args.env_version == 3:
+        # args.file_path = "/home/user/git/spinningup/spinup/FlexibilityEnv/input_m8n12_cv0.8.pkl"
+        args.file_path = os.getcwd().split('spinningup')[0] + "spinningup/spinup/FlexibilityEnv_input/{}".format(args.env_input)
 
+        m, n, mean_c, mean_d, sd_d, profit_mat, target_arcs, fixed_costs, flex_0 = load_FlexibilityEnv_input(args.file_path)
+
+        eg.add('env_input', args.file_path)
+        eg.add('env_n_sample', args.env_n_sample)
+
+        if args.target_arcs is None:
+            eg.add('target_arc', target_arcs)
+        else:  # target_arcs is explicitly specified by the scripts, which overrides the target_arc from the input file
+            eg.add('target_arc', args.target_arcs)
 
     if args.algo == "ppo":
         eg.add('train_pi_iters', args.train_pi_iters)
@@ -38,6 +49,7 @@ def run_experiment(args):
         eg.run(vpg)
 
 if __name__ == '__main__':
+
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--algo", type=str, default="ppo")
@@ -46,8 +58,7 @@ if __name__ == '__main__':
     parser.add_argument("--num_runs", type=int, default=1)
     parser.add_argument('--steps_per_epoch', type=int, default=6000)
     parser.add_argument('--save_freq', type=int, default=5000)
-    parser.add_argument('--env_name', type=str, default="Flexibility-v0")
-    parser.add_argument('--exp_name', type=str, default='Flexibility-PPO')
+
     parser.add_argument('--eval_episodes', type=int, default=50,
                         help="number of episodes to run during evaluation.")
 
@@ -63,11 +74,21 @@ if __name__ == '__main__':
                         help="starting temperature used during training. If larger than 1.0, training temperature "
                              "decreases to 1.0 in the first 1/3 of epochs. ")
     parser.add_argument("--gamma", type=float, default=0.99, help="Discount factor of PPO. ")
+    parser.add_argument('--exp_name', type=str, default='Flexibility-PPO')
 
+    parser.add_argument('--env_name', type=str, default="Flexibility")
     parser.add_argument("--env_version", type=int, default=1,
                         help="version of env. env1 is both add/drop until reached target_arcs. env2 is both add/drop "
-                             "until taken target_arcs steps.")
+                             "until taken target_arcs steps. env3 is a FlexibilityEnv created from an input file, "
+                             "e.g., input_m8n12_cv0.8.pkl")
+    parser.add_argument("--env_n_sample", type=int, default=50,
+                        help="number of samples to draw during structure performance evaluation")
+    parser.add_argument("--env_input", type=str, default='inputJG_m8n16_cv0.4.pkl',
+                        help="input file specifying settings for FlexibilityEnv")
 
+    parser.add_argument('--target_arcs', type=int, nargs='+', default=None,
+                        help="to specify target arcs with different values, e.g., 27 29 31 33."
+                             "This would override the target_arc from input file in env_version=3")
 
     args = parser.parse_args()
 

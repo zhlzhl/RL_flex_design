@@ -103,7 +103,8 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
         steps_per_epoch=4000, epochs=50, gamma=0.99, clip_ratio=0.2, pi_lr=3e-4,
         vf_lr=1e-3, train_pi_iters=80, train_v_iters=80, lam=0.97, max_ep_len=1000,
         target_kl=0.01, logger_kwargs=dict(), save_freq=10, custom_h=None, eval_episodes=50,
-        do_checkpoint_eval=False, env_name=None, eval_temp=1.0, train_starting_temp=1.0, env_version=1):
+        do_checkpoint_eval=False, env_name=None, eval_temp=1.0, train_starting_temp=1.0,
+        env_version=None, env_input=None):
     """
 
     Args:
@@ -283,7 +284,7 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
     best_eval_StdEpRet = 1.0e30
 
     # save is used to only allow saving BEST models after half of training epochs
-    save = False
+    save = True
 
     # below are used for early-stop. We early stop if
     # 1) a best model has been saved, and,
@@ -325,7 +326,7 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
         # Save model
         if (epoch % save_freq == 0) or (epoch == epochs - 1):
             # Save a new model every save_freq and at the last epoch. Do not overwrite the previous save.
-            logger.save_state({'env': env}, epoch)
+            logger.save_state({'env_name': env_name}, epoch)
 
             # Evaluate and save best model
             if do_checkpoint_eval and epoch > 0:
@@ -350,12 +351,14 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
                     epoch=epoch,
                     # the env_name is passed in so that to create an env when and where it is needed. This is to
                     # logx.save_state() error where an env pointer cannot be pickled
-                    env_name=env_name,
+                    env_name= "F{}x{}T{}_SP{}_v{}".format(env.n_plant, env.n_product, env.target_arcs, env.n_sample, env_version) if env_version==3 else env_name,
                     env_version=env_version,
+                    env_input=env_input,
+                    target_arcs=env.target_arcs,
                     get_action=lambda x: sess.run(pi, feed_dict={x_ph: x[None, :],
                                                                  temperature_ph: eval_temp})[0],
-                    n_sample=env.n_sample if epoch < epochs / 2 else 5000,
                     # number of samples to draw when simulate demand
+                    n_sample=5000,
                     num_episodes=eval_episodes,
                     save=save,
                     seed=seed
@@ -364,12 +367,12 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
         # Perform PPO update!
         update()
 
-        # for saving the best models and performances during train and evaluate
-        # only start to save best models after 1% training epochs
-        if epoch == np.ceil(epochs / 100):
-            best_eval_AverageEpRet = -0.05  # a negative value so that best model is saved at least once.
-            best_eval_StdEpRet = 1.0e30
-            save = True
+        # # for saving the best models and performances during train and evaluate
+        # # only start to save best models after 1% training epochs
+        # if epoch == np.ceil(epochs / 100):
+        #     best_eval_AverageEpRet = -0.05  # a negative value so that best model is saved at least once.
+        #     best_eval_StdEpRet = 1.0e30
+        #     save = True
 
         # # # Log into tensorboard
         log_key_to_tb(tb_logger, logger, epoch, key="EpRet", with_min_and_max=True)
@@ -418,7 +421,7 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
             # check whether we should count this episode, i.e., whether early_stop_count_started == True
             if early_stop_count_started:
                 episode_count_after_saved += 1
-                if episode_count_after_saved > 50:
+                if episode_count_after_saved > 80:
                     logger.log('Early Stopped at epoch {}.'.format(epoch), color='cyan')
                     break
 
