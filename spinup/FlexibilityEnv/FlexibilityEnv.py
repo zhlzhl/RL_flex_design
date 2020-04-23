@@ -12,7 +12,6 @@ from matplotlib.figure import Figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 
 
-
 def build_base_structure(n_plant, n_product, capacity, std_mean_ratio):
     adjacency_matrix = np.zeros((n_plant, n_product))  # Adjacency Matrix
 
@@ -75,7 +74,7 @@ def expected_sales_for_structure(structure, n_sample, capacity,
 
     # below is needed for env_version in (1, 2)
     if len(capacity) == 1:
-        capacity = capacity * np.ones(n_plant) # capacity vector
+        capacity = capacity * np.ones(n_plant)  # capacity vector
     if demand_mean is None:
         demand_mean = sum(capacity) / n_product * np.ones(n_product)  # mean demand vector
     if demand_std is None:
@@ -86,7 +85,6 @@ def expected_sales_for_structure(structure, n_sample, capacity,
         flow_profits = np.random.rand(n_plant, n_product)
     if fixed_costs is None:
         fixed_costs = np.zeros((n_plant, n_product))
-
 
     # Simulate Expected Profits
     model = Model('MaxProfit')
@@ -129,7 +127,13 @@ def expected_sales_for_structure(structure, n_sample, capacity,
         for j in products:
             constraint_product[j].setAttr(GRB.attr.RHS, demand[j])
         model.optimize()
-        sample_profits[sample] = model.objVal - np.sum(np.multiply(fixed_costs, structure))
+        ## If we use sparse reward for env_version=3, then we need to substract arc costs at the end of the game
+        # sample_profits[sample] = model.objVal - np.sum(np.multiply(fixed_costs, structure))
+
+        # since a reward of negative arc cost is given at each step for env_version=3, the final reward should
+        # include arc cost induced by only the last step. Note that the arc cost is not handled here, but outside this
+        # calculation. Check out FlexibilityEnv.step().
+        sample_profits[sample] = model.objVal
 
     return np.average(sample_profits), np.std(sample_profits)
 
@@ -198,6 +202,13 @@ def _terminated(self):
     env2_terminated = (self.env_version == 2 and self.step_count == self.target_arcs)
     env3_terminated = (self.env_version == 3 and self.step_count == self.allowed_steps)
     return env1_terminated or env2_terminated or env3_terminated
+
+
+def _induced_fixed_cost(self, row_index, col_index):
+    if self.adjacency_matrix[row_index, col_index] == 1:
+        return - self.fixed_costs[row_index, col_index]
+    else:
+        return self.fixed_costs[row_index, col_index]
 
 
 class FlexibilityEnv(gym.Env):
@@ -283,19 +294,34 @@ class FlexibilityEnv(gym.Env):
 
         # reward
         if self.reward_shaping == "BASIC":
+            if self.env_version in (1, 2):
+                # there is no fixed arc cost for env_version 1 and 2
+                r = 0
+            if self.env_version == 3:
+                # reward is the induced fixed cost by adding/removing an arc for each step before termination
+                r = _induced_fixed_cost(self, row_index, col_index)
+
             if _terminated(self):
-                # evaluate structure performance
-                if self.env_version in (1, 2):
-                    r, _ = expected_sales_for_structure(self.adjacency_matrix, self.n_sample, self.capacity_mean,
-                                                        std_mean_ratio=self.std_mean_ratio)
-                else:  # env_version = 3
-                    r, _ = expected_sales_for_structure(self.adjacency_matrix, self.n_sample,
-                                                        self.capacity_mean,
-                                                        demand_mean=self.demand_mean,
-                                                        demand_std=self.demand_std,
-                                                        flow_profits=self.profit_matrix,
-                                                        fixed_costs=self.fixed_costs)
                 done = True
+                if self.env_version in (1, 2):
+                    # evaluate structure performance
+                    structure_performance, _ = expected_sales_for_structure(self.adjacency_matrix,
+                                                                            self.n_sample,
+                                                                            self.capacity_mean,
+                                                                            std_mean_ratio=self.std_mean_ratio)
+
+                    r += structure_performance
+
+                if self.env_version == 3:
+                    # evaluate structure performance
+                    structure_performance, _ = expected_sales_for_structure(self.adjacency_matrix,
+                                                                            self.n_sample,
+                                                                            self.capacity_mean,
+                                                                            demand_mean=self.demand_mean,
+                                                                            demand_std=self.demand_std,
+                                                                            flow_profits=self.profit_matrix,
+                                                                            fixed_costs=self.fixed_costs)
+                    r += structure_performance
 
         elif self.reward_shaping == "SALES_INCREMENT":
             # evaluate structure performance
