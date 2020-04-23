@@ -2,11 +2,11 @@ import os
 import os.path as osp
 
 
-EXPERIMENT = '10x10'
+EXPERIMENT = '8x12'
 
 # a unique string to identify the set of directories to look into
-DIR_IDENTIFIER = ('ENV2', EXPERIMENT)
-EXCLUDE = ('SPTEST')
+DIR_IDENTIFIER = ('ENV3')
+EXCLUDE = ('JG')
 # a unique string to identify the name of the files to be copied
 FILE_IDENTIFIER = 'best_eval_performance_n_structure'
 # the name of the directory where the best structures are saved
