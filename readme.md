@@ -11,6 +11,11 @@ to evaluate rewards by solving linear programming problems.
 - install tensorboard if it is not installed during spinningup setup. 
 - install networkx and pyglet.
 
+```commandline
+
+
+```
+
 ## Run the codes
 The entry point of running the RL training using FlexibilityEnv is run_flexibility.py under /spinningup/spinup. 
 It allows multiple experiments to be run using ExperimentGrid, a tool from OpenAI. 
@@ -32,6 +37,11 @@ python -m spinup.run_flexibility
 
 Bash scripts can also be created to invoke experiments by calling run_flexibility.py. 
 Check out one of the examples "run_experiments...." under /spinningup. 
+
+Below is an example of running a bash script from command line. 
+```
+(spinningup) user@ubuntu:~/git/RL_flex_design$ ./run_experiments_CH1024-128_ENV3_input_ran10x10a_cv0.8.sh
+```
 
 ## Algorithm 
 PPO algorithm is used in our RL training. We modified the ppo.py file under /spinningup/spinup/algos/ppo/ from spinningup to run our Flexibility Env. 
