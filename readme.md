@@ -4,9 +4,11 @@ Flexibility Design with Neural Reinforcement Learning
 
 ## Setup 
 This code is based on [the spinningup project from OpenAi](https://github.com/openai/spinningup). 
-Create a conda environment and [install spinningup](https://spinningup.openai.com/en/latest/user/installation.html). Note that "MuJoCo" is not needed. 
-Under the same conda environment, install Gurobi. Gurobi is needed by the Flexibility Environment 
+Create a conda environment and 
+- [install spinningup](https://spinningup.openai.com/en/latest/user/installation.html). Note that "MuJoCo" is not needed. 
+- install Gurobi. Gurobi is needed by the Flexibility Environment 
 to evaluate rewards by solving linear programming problems. 
+- install tensorboard if it is not installed during spinningup setup. 
 
 ## Run the codes
 The entry point of running the RL training using FlexibilityEnv is run_flexibility.py under /spinningup/spinup. 
@@ -42,6 +44,13 @@ A three layer multi-layer perceptron (MLP) is used for both actor and critic net
 core.py file in the ppo directory specify the actor and critic networks. 
 We modified core.py to add temperature into the policy action. 
 The size of the two hidden layers of the 3-layer MLP can be specified using `--custom_h`, e.g., `--custom_h 1024-128`. 
+
+## Monitor the training progress 
+Tensorboard is used to monitor the training progress. 
+If tensorboard is installed, launch it from command line under the same conda environment by running 
+```commandline
+tensorboard --logdir=data
+```
 
 ## Collect genereated structures 
 Evaluation can be carried during training which can be specified through a combination of 
