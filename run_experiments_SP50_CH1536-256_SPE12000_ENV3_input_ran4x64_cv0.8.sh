@@ -2,7 +2,7 @@
 
 #tarcs=(10 11 12 13 14 15 16 17 18 19 20)
 #for (( i=0; i<${#tarcs[@]}; i++ )); do
-python -m spinup.run_simple \
+python -m spinup.run_flexibility \
     --algo ppo  \
     --env_name Flexibility4x64_SP50-v3 \
     --exp_name Flexibility4x64_SP50_CH1536-256_SPE12000_ENV3  \
