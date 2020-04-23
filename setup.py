@@ -1,5 +1,5 @@
 from os.path import join, dirname, realpath
-from setuptools import setup
+from setuptools import setup, __version__
 import sys
 
 assert sys.version_info.major == 3 and sys.version_info.minor >= 6, \
@@ -27,7 +27,10 @@ setup(
         'scipy',
         'seaborn==0.8.1',
         'tensorflow>=1.8.0,<2.0',
-        'tqdm'
+        'tqdm',
+        'networkx',
+        'tensorboard',
+        'pyglet'
     ],
     extras_require={'mujoco': 'mujoco-py==2.0.2.7'},
     description="Teaching tools for introducing people to deep RL.",

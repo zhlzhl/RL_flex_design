@@ -4,17 +4,74 @@ Flexibility Design with Neural Reinforcement Learning
 
 ## Setup 
 This code is based on [the spinningup project from OpenAi](https://github.com/openai/spinningup). 
-Create a conda environment and 
-- [install spinningup](https://spinningup.openai.com/en/latest/user/installation.html). Note that "MuJoCo" is not needed. 
+The steps are summarized below, 
+- [install spinningup prerequisites](https://spinningup.openai.com/en/latest/user/installation.html).  
+We modified the installation steps to include requirements for our project below
+- install RL_flex_design
 - install Gurobi. Gurobi is needed by the Flexibility Environment 
 to evaluate rewards by solving linear programming problems. 
-- install tensorboard if it is not installed during spinningup setup. 
-- install networkx and pyglet.
 
+### Install Spinningup Prerequisites
+Spinning Up requires Python3, OpenAI Gym, and OpenMPI. Although Gym is not needed for our project, 
+We recommend to install it so that we can verify the installation of Spinning UP. 
+
+#### Install Python 
 ```commandline
-
-
+conda create -n spinningup python=3.6
 ```
+
+To use Python from the environment spinningup, activate the environment with: 
+```commandline
+conda activate spinningup 
+```
+
+#### Install OpenMPI 
+##### Ubuntu
+```commandline
+sudo apt-get update && sudo apt-get install libopenmpi-dev
+```
+##### Mac OS X
+```commandline
+brew install openmpi
+```
+
+### Install RL_flex_design
+```commandline
+git clone https://github.com/zhlzhl/RL_flex_design.git
+cd RL_flex_design
+pip install -e .
+```
+#### Check your install 
+To see if you’ve successfully installed Spinning Up, try running PPO in the LunarLander-v2 environment with
+```commandline
+python -m spinup.run ppo --hid "[32,32]" --env LunarLander-v2 --exp_name installtest --gamma 0.999
+```
+This might run for around 10 minutes, and you can leave it going in the background while you continue reading through documentation. This won’t train the agent to completion, but will run it for long enough that you can see some learning progress when the results come in.
+
+After it finishes training, watch a video of the trained policy with
+```commandline
+python -m spinup.run test_policy data/installtest/installtest_s0
+```
+
+And plot the results with
+```commandline
+python -m spinup.run plot data/installtest/installtest_s0
+```
+
+### Install Gurobi 
+From a terminal window issue the following command to add the Gurobi channel to your default search list
+```commandline
+conda config --add channels http://conda.anaconda.org/gurobi
+```
+
+Now issue the following command to install the Gurobi package to the RL_flex_design environment
+```commandline
+conda activate RL_flex_design
+conda install gurobi
+```
+
+#### Install a Gurobi License 
+Install a Gurobi license (if you haven't already done so), by following the instruction from the Gurobi website. 
 
 ## Run the codes
 The entry point of running the RL training using FlexibilityEnv is run_flexibility.py under /spinningup/spinup. 
