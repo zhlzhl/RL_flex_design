@@ -30,7 +30,7 @@ def run_experiment(args):
 
     if args.env_version == 3:
         # args.file_path = "/home/user/git/spinningup/spinup/FlexibilityEnv/input_m8n12_cv0.8.pkl"
-        args.file_path = os.getcwd().split('spinningup')[0] + "spinningup/spinup/FlexibilityEnv_input/{}".format(args.env_input)
+        args.file_path = os.getcwd().split('spinningup')[0] + "/spinup/FlexibilityEnv_input/{}".format(args.env_input)
 
         m, n, mean_c, mean_d, sd_d, profit_mat, target_arcs, fixed_costs, flex_0 = load_FlexibilityEnv_input(args.file_path)
 

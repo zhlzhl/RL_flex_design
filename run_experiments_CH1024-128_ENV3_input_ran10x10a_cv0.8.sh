@@ -5,7 +5,7 @@
 python -m spinup.run_flexibility \
     --algo ppo  \
     --env_name Flexibility10x10-v3 \
-    --exp_name Flexibility10x10_CH1024-128_ENV3_2ndRun  \
+    --exp_name Flexibility10x10_CH1024-128_ENV3  \
     --cpu 8 \
     --epochs 400  \
     --steps_per_epoch 12000  \
@@ -16,5 +16,6 @@ python -m spinup.run_flexibility \
     --env_version 3 \
     --env_n_sample 50 \
     --env_input input_ran10x10a_cv0.8.pkl \
+    --target_arcs 37 38\
     --do_checkpoint_eval;
 #done
