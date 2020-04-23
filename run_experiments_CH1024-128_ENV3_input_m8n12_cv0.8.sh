@@ -4,8 +4,8 @@
 #for (( i=0; i<${#tarcs[@]}; i++ )); do
 python -m spinup.run_flexibility \
     --algo ppo  \
-    --env_name Flexibility8x12_SP50-v3 \
-    --exp_name Flexibility8x12_SP50_PPO_CH1024-128_SPE12000_ITR80_EP400_ET1_ENV3  \
+    --env_name Flexibility8x12-v3 \
+    --exp_name Flexibility8x12_CH1024-128_ENV3  \
     --cpu 8 \
     --epochs 400  \
     --steps_per_epoch 12000  \
@@ -14,6 +14,7 @@ python -m spinup.run_flexibility \
     --act tf.nn.relu  \
     --eval_temp 1.0 \
     --env_version 3 \
+    --env_n_sample 50 \
     --env_input input_m8n12_cv0.8.pkl \
     --do_checkpoint_eval;
 #done
