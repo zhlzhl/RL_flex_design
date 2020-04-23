@@ -22,7 +22,7 @@ def collect_and_copy_best_structures():
     for root, dir_list, _ in os.walk(data_dir):
         for dir in dir_list:
             # if DIR_IDENTIFIER in dir:
-            if all([identifier in dir for identifier in DIR_IDENTIFIER]):
+            if all([identifier in dir for identifier in DIR_IDENTIFIER]) and all([identifier not in dir for identifier in EXCLUDE]):
                 for sub_root, sub_dir_list, _ in os.walk(os.path.join(root, dir)):  # level of a particular exp_s0 dir
                     if len(sub_dir_list) > 0:
                         for sub_dir in sub_dir_list:
