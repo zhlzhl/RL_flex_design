@@ -30,7 +30,8 @@ def run_experiment(args):
 
     if args.env_version == 3:
         # args.file_path = "/home/user/git/spinningup/spinup/FlexibilityEnv/input_m8n12_cv0.8.pkl"
-        args.file_path = os.getcwd().split('spinningup')[0] + "/spinup/FlexibilityEnv_input/{}".format(args.env_input)
+        prefix = os.getcwd().split('RL_flex_design')[0]
+        args.file_path = prefix + "RL_flex_design/spinup/FlexibilityEnv_input/{}".format(args.env_input)
 
         m, n, mean_c, mean_d, sd_d, profit_mat, target_arcs, fixed_costs, flex_0 = load_FlexibilityEnv_input(args.file_path)
 
@@ -38,9 +39,9 @@ def run_experiment(args):
         eg.add('env_n_sample', args.env_n_sample)
 
         if args.target_arcs is None:
-            eg.add('target_arc', target_arcs)
+            eg.add('target_arcs', target_arcs)
         else:  # target_arcs is explicitly specified by the scripts, which overrides the target_arc from the input file
-            eg.add('target_arc', args.target_arcs)
+            eg.add('target_arcs', args.target_arcs)
 
     if args.algo == "ppo":
         eg.add('train_pi_iters', args.train_pi_iters)
@@ -83,7 +84,7 @@ if __name__ == '__main__':
                              "e.g., input_m8n12_cv0.8.pkl")
     parser.add_argument("--env_n_sample", type=int, default=50,
                         help="number of samples to draw during structure performance evaluation")
-    parser.add_argument("--env_input", type=str, default='inputJG_m8n16_cv0.4.pkl',
+    parser.add_argument("--env_input", type=str, default=None,
                         help="input file specifying settings for FlexibilityEnv")
 
     parser.add_argument('--target_arcs', type=int, nargs='+', default=None,

@@ -174,7 +174,7 @@ def get_custom_env_fn(env_name, env_version=None, target_arcs=None, env_input=No
             def __init__(self):
                 super().__init__(n_plant=n_plant,
                                  n_product=n_product,
-                                 target_arcs=target_arcs,
+                                 target_arcs=target_arcs,  # for env_version=3, target_arcs is passed into the function call
                                  n_sample=env_n_sample,
                                  capacity_mean=mean_c,
                                  env_version=env_version,

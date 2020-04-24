@@ -48,7 +48,11 @@ def load_policy(fpath, itr='last', deterministic=False, eval_temp=1.0, use_temp=
             env = None
     else:
         # env = (lambda: gym.make(env_name))()
-        env = get_custom_env_fn(env_name, env_version)()
+        if args.env_version in (1, 2):
+            env = get_custom_env_fn(env_name, env_version)()
+        if args.env_version == 3:
+            env = get_custom_env_fn(env_name, env_version, target_arcs=args.target_arcs, env_input=args.env_input,
+                                    env_n_sample=5000)()
 
     return env, get_action
 
@@ -99,6 +103,11 @@ if __name__ == '__main__':
     parser.add_argument('--env_version', type=int, default=1,
                         help="version of env. env1 is both add/drop until reached target_arcs. env2 is both add/drop "
                              "until taken target_arcs steps.")
+    parser.add_argument("--env_input", type=str, default=None,
+                        help="input file specifying settings for FlexibilityEnv")
+
+    parser.add_argument('--target_arcs', type=int, default=None,
+                        help="to specify the number of target_arcs for FlexibilityEnv")
 
     args = parser.parse_args()
     env, get_action = load_policy(args.fpath,

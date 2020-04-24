@@ -88,9 +88,6 @@ def setup_logger_kwargs(exp_name, seed=None, data_dir=None, datestamp=False):
     return logger_kwargs
 
 
-
-
-
 def call_experiment(exp_name, thunk, seed=0, num_cpu=1, data_dir=None,
                     datestamp=False, **kwargs):
     """
@@ -161,19 +158,17 @@ def call_experiment(exp_name, thunk, seed=0, num_cpu=1, data_dir=None,
             if kwargs['env_version'] == 3:
                 kwargs['env_fn'] = get_custom_env_fn(env_name,
                                                      env_version=kwargs['env_version'],
-                                                     target_arcs=kwargs['target_arc'],
+                                                     target_arcs=kwargs['target_arcs'],
                                                      env_input=kwargs['env_input'],
                                                      env_n_sample=kwargs['env_n_sample'])
 
-                del kwargs['target_arc'], kwargs['env_n_sample']
-
+                del kwargs['env_n_sample']
 
         # Fork into multiple processes
         mpi_fork(num_cpu)
 
         # Run thunk
         thunk(**kwargs)
-
 
     # Prepare to launch a script to run the experiment
     pickled_thunk = cloudpickle.dumps(thunk_plus)
@@ -203,9 +198,20 @@ def call_experiment(exp_name, thunk, seed=0, num_cpu=1, data_dir=None,
     plot_cmd = 'python -m spinup.run plot ' + logger_kwargs['output_dir']
     plot_cmd = colorize(plot_cmd, 'green')
 
-    test_cmd = 'python -m spinup.run test_policy ' + \
-               logger_kwargs['output_dir'] + \
-               ' --use_temp --env_name {} --env_version {}'.format(kwargs['env_name'], kwargs['env_version'])
+    if kwargs['env_version'] in (1, 2):
+        test_cmd = 'python -m spinup.run test_policy ' + \
+                   logger_kwargs['output_dir'] + \
+                   ' --use_temp --env_name {} --env_version {}'.format(kwargs['env_name'], kwargs['env_version'])
+        
+    if kwargs['env_version'] == 3:
+        test_cmd = 'python -m spinup.run test_policy ' + \
+                   logger_kwargs['output_dir'] + \
+                   ' --use_temp' + \
+                   ' --env_name {}'.format(kwargs['env_name']) + \
+                   ' --env_version {}'.format(kwargs['env_version']) + \
+                   ' --env_input {}'.format(kwargs['env_input']) + \
+                   ' --target_arcs {}' .format(kwargs['target_arcs'])
+
     test_cmd = colorize(test_cmd, 'green')
 
     output_msg = '\n' * 5 + '=' * DIV_LINE_WIDTH + '\n' + dedent("""\

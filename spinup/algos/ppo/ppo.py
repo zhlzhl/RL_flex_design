@@ -104,7 +104,7 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
         vf_lr=1e-3, train_pi_iters=80, train_v_iters=80, lam=0.97, max_ep_len=1000,
         target_kl=0.01, logger_kwargs=dict(), save_freq=10, custom_h=None, eval_episodes=50,
         do_checkpoint_eval=False, env_name=None, eval_temp=1.0, train_starting_temp=1.0,
-        env_version=None, env_input=None):
+        env_version=None, env_input=None, target_arcs=None):
     """
 
     Args:
