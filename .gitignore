@@ -14,6 +14,7 @@ openai-education-spinningup-latest.pdf
 backup_scriptsNlogs/
 best_structures/backups/
 backup_scripts/
+data_backup/
 
 dist/
 
