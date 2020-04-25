@@ -28,7 +28,7 @@ def load_FlexibilityEnv_input(file):
 
 if __name__ == "__main__":
 
-    file = os.getcwd() + "/input_ran10x10a_cv0.8.pkl"
+    file = os.getcwd() + "/input_ran17x17_cv0.8.pkl"
 
     m, n, mean_c, mean_d, sd_d, profit_mat, target_arcs, fixed_costs, flex_0 = load_FlexibilityEnv_input(file)
 
@@ -37,6 +37,6 @@ if __name__ == "__main__":
     print(mean_d)
     print(sd_d)
     print(profit_mat)
-    print(target_arcs)
+    print('target_arcs: {}'.format(target_arcs))
     print(fixed_costs)
     print(flex_0)
