@@ -50,7 +50,7 @@ def load_policy(fpath, itr='last', deterministic=False, eval_temp=1.0, use_temp=
         # env = (lambda: gym.make(env_name))()
         if args.env_version in (1, 2):
             env = get_custom_env_fn(env_name, env_version)()
-        if args.env_version == 3:
+        if args.env_version in (3, 4):
             env = get_custom_env_fn(env_name, env_version, target_arcs=args.target_arcs, env_input=args.env_input,
                                     env_n_sample=5000)()
 

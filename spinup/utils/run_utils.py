@@ -153,9 +153,9 @@ def call_experiment(exp_name, thunk, seed=0, num_cpu=1, data_dir=None,
         # Make 'env_fn' from 'env_name'
         if 'env_name' in kwargs:
             env_name = kwargs['env_name']
-            if kwargs['env_version'] == 1 or kwargs['env_version'] == 2:
+            if kwargs['env_version'] in (1, 2):
                 kwargs['env_fn'] = get_custom_env_fn(env_name, env_version=kwargs['env_version'])
-            if kwargs['env_version'] == 3:
+            if kwargs['env_version'] in (3, 4):
                 kwargs['env_fn'] = get_custom_env_fn(env_name,
                                                      env_version=kwargs['env_version'],
                                                      target_arcs=kwargs['target_arcs'],
@@ -203,7 +203,7 @@ def call_experiment(exp_name, thunk, seed=0, num_cpu=1, data_dir=None,
                    logger_kwargs['output_dir'] + \
                    ' --use_temp --env_name {} --env_version {}'.format(kwargs['env_name'], kwargs['env_version'])
         
-    if kwargs['env_version'] == 3:
+    if kwargs['env_version'] in (3, 4):
         test_cmd = 'python -m spinup.run test_policy ' + \
                    logger_kwargs['output_dir'] + \
                    ' --use_temp' + \

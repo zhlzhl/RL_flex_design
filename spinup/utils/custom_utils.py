@@ -112,7 +112,7 @@ def get_new_env_name(env_name, n_sample, env_version):
                     raise NotImplementedError("The eval env {} with n_sample = {} is not implemented"
                                               .format(env_name, n_sample))
 
-    if env_version == 3:
+    if env_version in (3, 4):
         new_env_name = env_name.split("_SP")[0] + "_SP5000_v3"
         print("using new env {} to evaluate performance".format(new_env_name))
     return new_env_name
@@ -143,7 +143,7 @@ def _parse_attributes(env_name):
 
 
 def get_custom_env_fn(env_name, env_version=None, target_arcs=None, env_input=None, env_n_sample=None):
-    if env_version == 1 or env_version == 2:
+    if env_version in (1, 2):
         # parse FlexibilityEnv settings from env_name
         n_plant, n_product, target_arcs, n_sample = _parse_attributes(env_name)
 
@@ -155,7 +155,7 @@ def get_custom_env_fn(env_name, env_version=None, target_arcs=None, env_input=No
                     'using custom env: {} | n_plant: {} | n_product: {} | target_arcs: {} | n_sample: {} | env_version: {}'
                         .format(env_name, n_plant, n_product, target_arcs, n_sample, env_version))
 
-    if env_version == 3:
+    if env_version in (3, 4):
         # load FlexibilityEnv settings from env_input
         n_plant, n_product, mean_c, mean_d, sd_d, profit_mat, _, fixed_costs, flex_0 = load_FlexibilityEnv_input(env_input)
 
@@ -192,9 +192,9 @@ def get_custom_env_fn(env_name, env_version=None, target_arcs=None, env_input=No
 def run_policy_with_custom_logging(env_name, env_version, env_input, target_arcs,
                                    get_action, logger, tb_logger, epoch,
                                    max_ep_len=None, n_episodes=150, render=True, n_sample=5000):
-    if env_version == 1 or env_version == 2:
+    if env_version in (1, 2):
         env = get_custom_env_fn(env_name, env_version)()
-    else:  # env_version == 3:
+    else:  # env_version in (3, 4):
         env = get_custom_env_fn(env_name,
                                 env_version,
                                 target_arcs,
@@ -247,3 +247,36 @@ def run_policy_with_custom_logging(env_name, env_version, env_input, target_arcs
     del env
 
     return mean, std, min, max, best_performance, best_structure
+
+
+class DummyActionStats:
+    def __init__(self, epoch, env_name, n_plant, n_product, allowed_steps):
+        self.env_name = env_name
+        self.dummy_action_count = 0
+        self.dummy_action_steps = []
+        self.total_action_count = 0
+        self.game_done = False
+        self.env_n_plant = n_plant
+        self.env_n_product = n_product
+        self.env_allowed_steps = allowed_steps
+
+        self.epoch = None
+        self.episode_dummy_counts = {}
+        self.episode_dummy_steps_ratio = {}
+
+    def update(self, episode_step, action, done):
+        self.total_action_count += 1
+        if action == self.env_n_plant * self.env_n_product:
+            self.dummy_action_count += 1
+            self.dummy_action_steps.append(episode_step)
+
+        self.game_done = done
+
+        if done:
+            # compute stats
+            pass
+
+
+    def reset(self):
+        self.dummy_action_count = 0
+        self.game_done = False
