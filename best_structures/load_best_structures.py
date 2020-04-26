@@ -27,8 +27,15 @@ def load_experiment(experiment):
                     # add the best_structure to the best_structure dict, key is target_arc in str format
                     best_structures_dict[target_arc] = best_structure
 
-                    print("Experiment: {} | target_arc: {} | best_performance: {} | epoch: {}"
-                          .format(experiment, target_arc, best_performance, epoch))
+                    if 'ENV3' in file:
+                        print("Experiment: {} | target_arc: {} | {} | epoch: {} | best_performance: {} "
+                              .format(experiment, target_arc, 'ENV3', epoch, best_performance))
+                    elif 'ENV4' in file:
+                        print("Experiment: {} | target_arc: {} | {} | epoch: {} | best_performance: {}"
+                              .format(experiment, target_arc, 'ENV4', epoch, best_performance))
+                    else:
+                        print("Experiment: {} | target_arc: {} | epoch: {} | best_performance: {}"
+                              .format(experiment, target_arc, best_performance, epoch))
 
     return best_structures_dict
 
