@@ -4,6 +4,7 @@ from spinup.FlexibilityEnv.FlexibilityEnv import FlexibilityEnv
 import os
 import pickle
 from spinup.FlexibilityEnv_input.inputload import load_FlexibilityEnv_input
+from spinup.FlexibilityEnv.FlexibilityEnv import expected_sales_for_structure
 
 
 # to be used for logging to tensorboard
@@ -112,8 +113,8 @@ def get_new_env_name(env_name, n_sample, env_version):
                     raise NotImplementedError("The eval env {} with n_sample = {} is not implemented"
                                               .format(env_name, n_sample))
 
-    if env_version in (3, 4):
-        new_env_name = env_name.split("_SP")[0] + "_SP5000_v3"
+    if env_version in (3, 4, 41, 5):
+        new_env_name = env_name.split("_SP")[0] + "_SP5000_v{}".format(env_version)
         print("using new env {} to evaluate performance".format(new_env_name))
     return new_env_name
 
@@ -155,7 +156,7 @@ def get_custom_env_fn(env_name, env_version=None, target_arcs=None, env_input=No
                     'using custom env: {} | n_plant: {} | n_product: {} | target_arcs: {} | n_sample: {} | env_version: {}'
                         .format(env_name, n_plant, n_product, target_arcs, n_sample, env_version))
 
-    if env_version in (3, 4):
+    if env_version in (3, 4, 41, 5):
         # load FlexibilityEnv settings from env_input
         n_plant, n_product, mean_c, mean_d, sd_d, profit_mat, _, fixed_costs, flex_0 = load_FlexibilityEnv_input(env_input)
 
@@ -194,7 +195,7 @@ def run_policy_with_custom_logging(env_name, env_version, env_input, target_arcs
                                    max_ep_len=None, n_episodes=150, render=True, n_sample=5000):
     if env_version in (1, 2):
         env = get_custom_env_fn(env_name, env_version)()
-    else:  # env_version in (3, 4):
+    else:  # env_version in (3, 4, 41, 5):
         env = get_custom_env_fn(env_name,
                                 env_version,
                                 target_arcs,
@@ -224,7 +225,7 @@ def run_policy_with_custom_logging(env_name, env_version, env_input, target_arcs
         ep_len += 1
 
         if d or (ep_len == max_ep_len):
-            logger.store(EpRet=ep_ret, EpLen=ep_len)
+            logger.store(EpRet=ep_ret, EpLen=ep_len, EpTotalArcs=env.adjacency_matrix.sum())
             print('Episode %d \t EpRet %.3f \t EpLen %d' % (n, ep_ret, ep_len))
 
             if best_performance < ep_ret:
@@ -238,9 +239,46 @@ def run_policy_with_custom_logging(env_name, env_version, env_input, target_arcs
     mean, std, min, max = log_key_to_tb(tb_logger, logger, epoch, key="EpRet", with_min_and_max=True, eval=True)
 
     log_key_to_tb(tb_logger, logger, epoch, key="EpLen", with_min_and_max=False, eval=True)
+    log_key_to_tb(tb_logger, logger, epoch, key="EpTotalArcs", with_min_and_max=False, eval=True)
+
+
+    ### below is for debugging
+    if env_version in (3, 4, 41, 5):
+        # evaluate structure performance
+        structure_performance, _ = expected_sales_for_structure(best_structure,
+                                                                env.n_sample,
+                                                                env.capacity_mean,
+                                                                demand_mean=env.demand_mean,
+                                                                demand_std=env.demand_std,
+                                                                flow_profits=env.profit_matrix,
+                                                                fixed_costs=env.fixed_costs)
+        ended_fixed_costs = np.sum(np.multiply(env.fixed_costs, best_structure))
+        starting_fixed_costs = np.sum(np.multiply(env.fixed_costs, env.starting_structure))
+        fixed_costs = - (ended_fixed_costs - starting_fixed_costs)
+        best_performance_directly_computed = structure_performance + fixed_costs
+
+        # print("best_struct_perf_w_fc_dc {} | struct_perf {} | fixed_cost {} | starting_fc {} | ending_fc {} | n_sample {}".format(
+        #     best_performance_directly_computed,
+        #     structure_performance,
+        #     fixed_costs,
+        #     starting_fixed_costs,
+        #     ended_fixed_costs,
+        #     env.n_sample
+        # ))
+        #
+        # print('final structure')
+        # print(best_structure)
+        #
+        # print('fixed cost')
+        # print(env.fixed_costs)
+
+        logger.store(BestStructPerf=best_performance_directly_computed)
+        log_key_to_tb(tb_logger, logger, epoch, key="BestStructPerf", with_min_and_max=False, eval=True)
+        logger.log_tabular('BestStructPerf', with_min_and_max=True)
 
     logger.log_tabular('EpRet', with_min_and_max=True)
     logger.log_tabular('EpLen', average_only=True)
+    logger.log_tabular('EpTotalArcs', with_min_and_max=True)
     logger.dump_tabular()
 
     env.close()
