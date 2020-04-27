@@ -38,14 +38,11 @@ def collect_and_copy_best_structures():
                                                     # found a file, copy it to the best_structure folder
                                                     file_to_copy = os.path.join(sss_root, file)
 
-                                                    if 'ENV3' in file_to_copy:
+                                                    if 'ENV' in file_to_copy:
                                                         output_file = os.path.join(output_dir,
-                                                                               "{}_ENV3_{}.pkl".format(file.split('.pkl')[0],
-                                                                                                  count))
-                                                    elif 'ENV4' in file_to_copy:
-                                                        output_file = os.path.join(output_dir,
-                                                                                   "{}_ENV4_{}.pkl".format(
+                                                                                   "{}_ENV{}_{}.pkl".format(
                                                                                        file.split('.pkl')[0],
+                                                                                       _get_env_version(file_to_copy),
                                                                                        count))
                                                     else:
                                                         output_file = os.path.join(output_dir,
@@ -56,6 +53,12 @@ def collect_and_copy_best_structures():
                                                     shutil.copy2(file_to_copy, output_file)
                                                     print('{} | copied {}'.format(count, file_to_copy))
                                                     print('    to {}'.format(output_file))
+
+
+def _get_env_version(file):
+    env_version = file.split('ENV')[1]
+    env_version = env_version.split('_')[0]
+    return env_version
 
 
 if __name__ == "__main__":

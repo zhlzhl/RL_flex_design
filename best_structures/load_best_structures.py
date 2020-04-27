@@ -27,17 +27,31 @@ def load_experiment(experiment):
                     # add the best_structure to the best_structure dict, key is target_arc in str format
                     best_structures_dict[target_arc] = best_structure
 
-                    if 'ENV3' in file:
-                        print("Experiment: {} | target_arc: {} | {} | epoch: {} | best_performance: {} "
-                              .format(experiment, target_arc, 'ENV3', epoch, best_performance))
-                    elif 'ENV4' in file:
-                        print("Experiment: {} | target_arc: {} | {} | epoch: {} | best_performance: {}"
-                              .format(experiment, target_arc, 'ENV4', epoch, best_performance))
+                    # if 'ENV3' in file:
+                    #     print("Experiment: {} | target_arc: {} | {} | epoch: {} | best_performance: {} "
+                    #           .format(experiment, target_arc, 'ENV3', epoch, best_performance))
+                    # elif 'ENV4' in file:
+                    #     print("Experiment: {} | target_arc: {} | {} | epoch: {} | best_performance: {}"
+                    #           .format(experiment, target_arc, 'ENV4', epoch, best_performance))
+                    # else:
+                    #     print("Experiment: {} | target_arc: {} | epoch: {} | best_performance: {}"
+                    #           .format(experiment, target_arc, best_performance, epoch))
+
+                    if 'ENV' in file:
+                        env_version = _get_env_version(file)
+                        print("Experiment: {} | target_arc: {} | ENV{} | epoch: {} | best_performance: {}"
+                              .format(experiment, target_arc, env_version, epoch, best_performance))
                     else:
                         print("Experiment: {} | target_arc: {} | epoch: {} | best_performance: {}"
                               .format(experiment, target_arc, best_performance, epoch))
 
     return best_structures_dict
+
+
+def _get_env_version(file):
+    env_version = file.split('ENV')[1]
+    env_version = env_version.split('_')[0]
+    return env_version
 
 
 if __name__ == "__main__":
