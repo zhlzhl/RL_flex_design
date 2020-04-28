@@ -28,7 +28,7 @@ def run_experiment(args):
     eg.add('env_version', args.env_version)
     eg.add('env_name', args.env_name)
 
-    if args.env_version in (3, 4, 41, 5):
+    if args.env_version >= 3:
         # args.file_path = "/home/user/git/spinningup/spinup/FlexibilityEnv/input_m8n12_cv0.8.pkl"
         prefix = os.getcwd().split('RL_flex_design')[0]
         args.file_path = prefix + "RL_flex_design/spinup/FlexibilityEnv_input/{}".format(args.env_input)

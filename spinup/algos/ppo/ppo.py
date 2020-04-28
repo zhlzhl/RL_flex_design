@@ -304,29 +304,11 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
             buf.store(o, a, r, v_t, logp_t, current_temp)
             logger.store(VVals=v_t)
 
-            ### added for debugging
-            structure_before_done = np.copy(env.adjacency_matrix)
-
             o, r, d, _ = env.step(a[0])
-            ### added for debugging
-            if env_version in (4, 41, 5) and d:
-                fixed_costs_before_done \
-                    = np.sum(np.multiply(env.fixed_costs, structure_before_done))
-                starting_fixed_costs = np.sum(np.multiply(env.fixed_costs, env.starting_structure))
-                expected_ep_ret_fixed_costs = - (fixed_costs_before_done - starting_fixed_costs)
-
-                assert ep_ret == expected_ep_ret_fixed_costs, \
-                    print("ep_ret from fixed costs not match. \nepoch {} | step {}\nep_ret {} | "
-                          "expected_ep_ret {} | ended_fixed_costs {} | "
-                          "starting_fixed_costs {}".format(epoch, t, ep_ret,
-                                                           expected_ep_ret_fixed_costs,
-                                                           fixed_costs_before_done,
-                                                           starting_fixed_costs))
-            # print('epoch {} | t {} | done {} | r {} |'.format(epoch, t, d, r))
             ep_ret += r
-            # print('epoch {} | t {} | done {} | ep_ret {}'.format(epoch, t, d, ep_ret))
             ep_len += 1
-            if env_version in (4, 41, 5) and env.action_is_dummy:  # a is dummy action
+
+            if env_version >= 4 and env.action_is_dummy:  # a is dummy action
                 ep_dummy_action_count += 1
                 ep_dummy_steps_normalized.append(ep_len / env.allowed_steps)
 
@@ -342,7 +324,7 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
                 if terminal:
                     # only save EpRet / EpLen if trajectory finished
                     logger.store(EpRet=ep_ret, EpLen=ep_len)
-                    if env_version in (4, 41, 5):
+                    if env_version >= 4:
                         logger.store(EpDummyCount=ep_dummy_action_count)
                         logger.store(EpTotalArcs=env.adjacency_matrix.sum())
                         if len(ep_dummy_steps_normalized) > 0:
@@ -354,7 +336,11 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
         # Save model
         if (epoch % save_freq == 0) or (epoch == epochs - 1):
             # Save a new model every save_freq and at the last epoch. Do not overwrite the previous save.
-            logger.save_state({'env_name': env_name}, epoch)
+            # logger.save_state({'env_name': env_name}, epoch)
+
+            # # Save a new model every save_freq and at the last epoch. Only keep one copy - the current model
+            # logger.save_state({'env_name': env_name})
+
 
             # Evaluate and save best model
             if do_checkpoint_eval and epoch > 0:
@@ -380,9 +366,10 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
                     # the env_name is passed in so that to create an env when and where it is needed. This is to
                     # logx.save_state() error where an env pointer cannot be pickled
                     env_name="F{}x{}T{}_SP{}_v{}".format(env.n_plant, env.n_product, env.target_arcs, env.n_sample,
-                                                         env_version) if env_version in (3, 4, 41, 5) else env_name,
+                                                         env_version) if env_version >= 3 else env_name,
                     env_version=env_version,
                     env_input=env_input,
+                    render=False,  # change this to True if you want to visualize how arcs are added during evaluation
                     target_arcs=env.target_arcs,
                     get_action=lambda x: sess.run(pi, feed_dict={x_ph: x[None, :],
                                                                  temperature_ph: eval_temp})[0],
@@ -395,13 +382,6 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
 
         # Perform PPO update!
         update()
-
-        # # for saving the best models and performances during train and evaluate
-        # # only start to save best models after 1% training epochs
-        # if epoch == np.ceil(epochs / 100):
-        #     best_eval_AverageEpRet = -0.05  # a negative value so that best model is saved at least once.
-        #     best_eval_StdEpRet = 1.0e30
-        #     save = True
 
         # # # Log into tensorboard
         log_key_to_tb(tb_logger, logger, epoch, key="EpRet", with_min_and_max=True)
@@ -418,12 +398,12 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
         tb_logger.log_scalar(tag="TotalEnvInteracts", value=(epoch + 1) * steps_per_epoch, step=epoch)
         tb_logger.log_scalar(tag="Time", value=time.time() - start_time, step=epoch)
         tb_logger.log_scalar(tag="epoch_temp", value=current_temp, step=epoch)
-        if env_version in (4, 41, 5):
-            log_key_to_tb(tb_logger, logger, epoch, key="EpDummyCount", with_min_and_max=True)
-            log_key_to_tb(tb_logger, logger, epoch, key="EpTotalArcs", with_min_and_max=True)
+        if env_version >= 4:
+            log_key_to_tb(tb_logger, logger, epoch, key="EpDummyCount", with_min_and_max=False)
+            log_key_to_tb(tb_logger, logger, epoch, key="EpTotalArcs", with_min_and_max=False)
 
             if len(logger.epoch_dict['EpDummyStepsNormalized']) > 0:
-                log_key_to_tb(tb_logger, logger, epoch, key="EpDummyStepsNormalized", with_min_and_max=True)
+                log_key_to_tb(tb_logger, logger, epoch, key="EpDummyStepsNormalized", with_min_and_max=False)
 
         # Log info about epoch
         logger.log_tabular('Epoch', epoch)
@@ -441,11 +421,11 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
         logger.log_tabular('StopIter', average_only=True)
         logger.log_tabular('Time', time.time() - start_time)
         logger.log_tabular('EpochTemp', current_temp)
-        if env_version in (4, 41, 5):
+        if env_version >= 4:
             logger.log_tabular('EpDummyCount', with_min_and_max=True)
             if len(logger.epoch_dict['EpDummyStepsNormalized']) > 0:
-                logger.log_tabular('EpDummyStepsNormalized', with_min_and_max=True)
-            logger.log_tabular('EpTotalArcs', with_min_and_max=True)
+                logger.log_tabular('EpDummyStepsNormalized', average_only=True)
+            logger.log_tabular('EpTotalArcs', average_only=True)
 
         logger.dump_tabular()
 
@@ -461,7 +441,7 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
             # check whether we should count this episode, i.e., whether early_stop_count_started == True
             if early_stop_count_started:
                 episode_count_after_saved += 1
-                if episode_count_after_saved > 80:
+                if episode_count_after_saved > 60:
                     logger.log('Early Stopped at epoch {}.'.format(epoch), color='cyan')
                     break
 

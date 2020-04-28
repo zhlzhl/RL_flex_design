@@ -200,7 +200,7 @@ def _terminated(self):
     total_arcs_after_step = np.sum(self.adjacency_matrix)
     env1_terminated = (self.env_version == 1 and total_arcs_after_step == self.target_arcs)
     env2_terminated = (self.env_version == 2 and self.step_count == self.target_arcs)
-    env345_terminated = (self.env_version in (3, 4, 41, 5) and self.step_count == self.allowed_steps)
+    env345_terminated = (self.env_version > 2 and self.step_count == self.allowed_steps)
     return env1_terminated or env2_terminated or env345_terminated
 
 
@@ -264,9 +264,9 @@ class FlexibilityEnv(gym.Env):
         if self.env_version == 4:
             # add dummy action
             self.action_dim = n_plant * n_product + 1
-        elif self.env_version == 41:
+        elif self.env_version > 40:
             # add dummy action
-            self.action_dim = n_plant * n_product + 3
+            self.action_dim = n_plant * n_product + self.env_version % 40
         else:
             self.action_dim = n_plant * n_product
 
@@ -295,13 +295,9 @@ class FlexibilityEnv(gym.Env):
             print("in env.step(). It seems target_arcs is already met but still is stepping. adjacency_matrix: \n{}, "
                   "target_arcs: {}".format(self.adjacency_matrix, self.target_arcs))
 
-        # assert type(action) is int64
-        if self.env_version == 4:
-            assert 0 <= action < self.n_plant * self.n_product + 1
-        elif self.env_version == 41:
-            assert 0 <= action < self.n_plant * self.n_product + 4
-        else:
-            assert 0 <= action < self.n_plant * self.n_product
+        # assert action is in the right range
+        assert 0 <= action < self.action_dim
+
 
         # action is the index of the link to be changed. If the link already exists, then the action is to remove it,
         # otherwise, the action is to add it.
@@ -310,7 +306,7 @@ class FlexibilityEnv(gym.Env):
             row_index = int(action / self.n_product)
             col_index = int(action % self.n_product)
             self.adjacency_matrix[row_index, col_index] = (self.adjacency_matrix[row_index, col_index] + 1) % 2
-        elif self.env_version in (4, 41):  # env_version == 4 or 41
+        elif self.env_version ==4 or self.env_version > 40:  # env_version == 4 or >40
             if action >= self.n_product * self.n_plant:
                 # this is the dummy action. Do not change adjacency matrix.
                 self.action_is_dummy = True
@@ -337,7 +333,7 @@ class FlexibilityEnv(gym.Env):
             if self.env_version == 3:
                 # reward is the induced fixed cost by adding/removing an arc for each step before termination
                 r = _induced_fixed_cost(self, row_index, col_index)
-            if self.env_version in (4, 41, 5):
+            if self.env_version in (4, 5) or self.env_version > 40:
                 if self.action_is_dummy:
                     # dummy action. there is no fixed cost induced.
                     r = 0
@@ -357,7 +353,7 @@ class FlexibilityEnv(gym.Env):
 
                     r += structure_performance
 
-                if self.env_version in (3, 4, 41, 5):
+                else:  # self.env_version >= 3:
                     # evaluate structure performance
                     structure_performance, _ = expected_sales_for_structure(self.adjacency_matrix,
                                                                             self.n_sample,
@@ -389,7 +385,7 @@ class FlexibilityEnv(gym.Env):
             self.adjacency_matrix = np.random.choice(2, size=(self.n_plant, self.n_product),
                                                      p=[1.0 - self.arc_probability_numerator / self.n_plant,
                                                         self.arc_probability_numerator / self.n_plant])
-        else:  # env_version in (3, 4, 41, 5)
+        else:  # env_version in (3, 4, >40, 5)
             self.adjacency_matrix = np.copy(self.starting_structure)
 
         # reset step count
@@ -417,7 +413,8 @@ class FlexibilityEnv(gym.Env):
         return np.random.randint(0, self.n_plant * self.n_product)
 
     def close(self):
-        self.viewer.close()
+        if self.viewer is not None:
+            self.viewer.close()
 
 
 class Viewer(pyglet.window.Window):
