@@ -16,6 +16,6 @@ python -m spinup.run_flexibility \
     --env_version 5 \
     --env_n_sample 50 \
     --env_input input_ran10x10a_cv0.8.pkl \
-    --target_arcs 28 31 \
+    --target_arcs 19 22 25 \
     --do_checkpoint_eval;
 #done
