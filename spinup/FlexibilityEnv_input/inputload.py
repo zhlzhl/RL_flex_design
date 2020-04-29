@@ -27,7 +27,7 @@ def load_FlexibilityEnv_input(file):
 
 
 if __name__ == "__main__":
-    input_file = "input_ran10x10a_cv0.8.pkl"
+    input_file = "input_ran10x10b_cv0.8.pkl"
     file = os.path.join(os.getcwd(), input_file)
 
     m, n, mean_c, mean_d, sd_d, profit_mat, target_arcs, fixed_costs, flex_0 = load_FlexibilityEnv_input(file)

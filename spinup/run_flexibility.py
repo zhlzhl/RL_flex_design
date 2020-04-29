@@ -12,7 +12,7 @@ def run_experiment(args):
     #     return gym.make(args.env_name)
 
     eg = ExperimentGrid(name=args.exp_name)
-    eg.add('seed', [10*i for i in range(args.num_runs)])
+    eg.add('seed', [10*i for i in range(args.num_runs)] if args.seed is None else args.seed)
     eg.add('epochs', args.epochs)
     eg.add('steps_per_epoch', args.steps_per_epoch)
     eg.add('save_freq', args.save_freq)
@@ -57,6 +57,8 @@ if __name__ == '__main__':
     parser.add_argument("--cpu", type=int, default=1)
     parser.add_argument("--epochs", type=int, default=5)
     parser.add_argument("--num_runs", type=int, default=1)
+    parser.add_argument('--seed', nargs='+', type=int, default=None,
+                        help="to directly specify seed instead of using --num_runs.")
     parser.add_argument('--steps_per_epoch', type=int, default=6000)
     parser.add_argument('--save_freq', type=int, default=5000)
 
@@ -90,6 +92,8 @@ if __name__ == '__main__':
     parser.add_argument('--target_arcs', type=int, nargs='+', default=None,
                         help="to specify target arcs with different values, e.g., 27 29 31 33."
                              "This would override the target_arc from input file in env_version=3")
+
+
 
     args = parser.parse_args()
 

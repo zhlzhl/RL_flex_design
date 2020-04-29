@@ -65,7 +65,8 @@ def expected_sales_for_structure(structure, n_sample, capacity,
                                  demand_mean=None,
                                  demand_std=None,
                                  flow_profits=None,
-                                 fixed_costs=None):
+                                 fixed_costs=None,
+                                 seed=None):
     # initialize for simulation and optimization
     n_plant, n_product = structure.shape
     plants = range(n_plant)
@@ -81,7 +82,10 @@ def expected_sales_for_structure(structure, n_sample, capacity,
         demand_std = demand_mean * std_mean_ratio  # standard deviation vector (if needed)
     if flow_profits is None:
         # flow_profits = np.ones((n_plant, n_product))
-        np.random.seed(3)
+        if seed is None:
+            np.random.seed(3)
+        else:
+            np.random.seed(seed)
         flow_profits = np.random.rand(n_plant, n_product)
     if fixed_costs is None:
         fixed_costs = np.zeros((n_plant, n_product))
