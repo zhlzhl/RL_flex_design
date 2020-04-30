@@ -5,6 +5,7 @@ import os
 import pickle
 from spinup.FlexibilityEnv_input.inputload import load_FlexibilityEnv_input
 from spinup.FlexibilityEnv.FlexibilityEnv import expected_sales_for_structure
+from spinup.user_config import *
 
 
 # to be used for logging to tensorboard
@@ -206,7 +207,7 @@ def run_policy_with_custom_logging(env_name, env_version, env_input, target_arcs
 
     o, r, d, ep_ret, ep_len, n = env.reset(), 0, False, 0, 0, 0
     while n < n_episodes:
-        if render:
+        if render or FORCE_RENDER:
             env.render()
             # time.sleep(1e-3)
 

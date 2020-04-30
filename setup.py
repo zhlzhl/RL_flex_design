@@ -25,14 +25,13 @@ setup(
         'pytest',
         'psutil',
         'scipy',
-        'seaborn==0.8.1',
+        'seaborn>=0.8.1',
         'tensorflow>=1.8.0,<2.0',
         'tqdm',
         'networkx',
         'tensorboard',
         'pyglet'
     ],
-    extras_require={'mujoco': 'mujoco-py==2.0.2.7'},
-    description="Teaching tools for introducing people to deep RL.",
-    author="Joshua Achiam",
+    description="Flexibility Design with Neural Reinforcement Learning developed based on Spinningup from OpenAI.",
+    author="Lei Zhang",
 )

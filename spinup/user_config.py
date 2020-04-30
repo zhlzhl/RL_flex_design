@@ -8,6 +8,9 @@ DEFAULT_DATA_DIR = osp.join(osp.abspath(osp.dirname(osp.dirname(__file__))),'dat
 # save directories:
 FORCE_DATESTAMP = False
 
+# Whether to render FlexibilityEnv Viewer during evaluation
+FORCE_RENDER = False
+
 # Whether GridSearch provides automatically-generated default shorthands:
 DEFAULT_SHORTHAND = True
 

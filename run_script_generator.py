@@ -3,48 +3,7 @@ from spinup.FlexibilityEnv_input.inputload import load_FlexibilityEnv_input
 from spinup.run_flexibility import run_experiment
 from multiprocessing import Process
 import os
-
-
-class Namespace:
-    def __init__(self, **kwargs):
-        self.__dict__.update(kwargs)
-
-
-def create_args(env_version, target_arcs):
-    return Namespace(
-        env_name='F{}-v{}'.format(EXPERIMENT, env_version),
-        exp_name='F{}_CH1024-128_ENV{}'.format(EXPERIMENT, env_version),
-        algo='ppo',
-        cpu=2,
-        epochs=400,
-        custom_h='1024-128',
-        env_version=env_version,
-        env_input=ENV_INPUT,
-        target_arcs=target_arcs,
-        steps_per_epoch=24000,
-        num_runs=8,
-        seed=None,
-        save_freq=8,
-        do_checkpoint_eval=True,
-        act="tf.nn.relu",
-        eval_episodes=50,
-        train_v_iters=80,
-        train_pi_iters=80,
-        eval_temp=1.0,
-        train_starting_temp=1.0,
-        gamma=0.99,
-        env_n_sample=50
-    )
-
-
-def run_in_parallel(*fns):
-    proc = []
-    for fn in fns:
-        p = Process(target=fn)
-        p.start()
-        proc.append(p)
-    for p in proc:
-        p.join()
+import numpy as np
 
 
 def _get_full_path(env_input):
@@ -76,76 +35,104 @@ def make_executable(path):
     os.chmod(path, mode)
 
 
+def get_seed_str(starting_seed, num_runs):
+    seed_str = ""
+
+    for i in range(num_runs):
+        seed_str += "{} ".format(starting_seed + i * 10)
+
+    return seed_str.strip()
+
+
+def get_input(experiment):
+    if '-' in experiment:
+        exp = experiment.split('-')[0]
+    else:
+        exp = experiment
+    return INPUTS[exp]
+
+
 # INPUTS = {'10x10b': 'input_ran10x10b_cv0.8.pkl'}
 
 from spinup.FlexibilityEnv_input.FlexibilityEnv_input_files import INPUTS
 
-EXPERIMENT = '10x10b'
-ENV_INPUT = INPUTS[EXPERIMENT]
-
 if __name__ == "__main__":
-    m, n, mean_c, mean_d, sd_d, profit_mat, target_arcs, fixed_costs, flex_0 = load_FlexibilityEnv_input(
-        _get_full_path(ENV_INPUT))
-    num_tars_per_script = 2
-    tar_list = get_tars_list(num_tars_per_script, target_arcs)
+    # specify parameters
+    experiment = '10x10a-lspe'
+    env_input = get_input(experiment)
+    env_version_list = [5]
+    epoch_episodes = 800
+    num_tars_per_script = 4
+    # the number of entrypoints to be created with different seeds and everything else the same, the purpose is to do more parallelization
+    num_batches = 2
+    # the number of runs with different seed for each target arc
+    num_runs = 3
 
+
+    m, n, mean_c, mean_d, sd_d, profit_mat, target_arcs, fixed_costs, flex_0 = load_FlexibilityEnv_input(
+        _get_full_path(env_input))
+    print("number of existing arcs {}".format(flex_0.sum()))
+    tar_list = get_tars_list(num_tars_per_script, target_arcs)
     print(tar_list)
 
-    env_version_list = [3, 4, 5]
-
-    for env_version in env_version_list:
-        # create entrypoint script
-        # !/bin/bash
-        path = 'run_{}_ENV{}.sh'.format(EXPERIMENT, env_version)
-        python_string = 'for((i=0;i < {};i++)); do bash run_{}_ENV{}_'.format(len(tar_list),
-                                                                               EXPERIMENT,
-                                                                               env_version) \
-                        + '$' + '{' + 'i' + '}' + '.sh & done'
-        with open(path, 'w') as f:
-            f.write('#!/bin/bash\n\n')
-            f.write(python_string)
-        make_executable(path)
-
-        print(python_string)
-
-        # create scripts to be called in parallel
-        for idx, target_arcs in enumerate(tar_list):
-            target_arcs_string = _get_string(target_arcs)
-            python_string = "python -m spinup.run_flexibility \
-                            --algo ppo  \
-                            --env_name F{}-v{} \
-                            --exp_name F{}_CH1024-128_ENV{}  \
-                            --cpu 2 \
-                            --epochs 400  \
-                            --custom_h 1024-128 \
-                            --env_version {} \
-                            --env_input {} \
-                            --target_arcs  {} \
-                            --num_runs 4 \
-                            --save_freq 8  \
-                            --steps_per_epoch 24000 \
-                            --do_checkpoint_eval;".format(
-                EXPERIMENT,
-                env_version,
-                EXPERIMENT,
-                env_version,
-                env_version,
-                ENV_INPUT,
-                target_arcs_string
-            )
-
-            path = 'run_{}_ENV{}_{}.sh'.format(EXPERIMENT, env_version, idx)
+    for batch in range(num_batches):
+        starting_seed = 100 * batch
+        for env_version in env_version_list:
+            # create entrypoint script
+            # !/bin/bash
+            path = 'run_{}_ENV{}_batch{}_entrypoint.sh'.format(experiment, env_version, batch)
+            python_string = 'for((i=0;i < {};i++)); do bash run_{}_ENV{}_batch{}_'.format(len(tar_list),
+                                                                                          experiment,
+                                                                                          env_version,
+                                                                                          batch) \
+                            + '$' + '{' + 'i' + '}' + '.sh & done'
             with open(path, 'w') as f:
                 f.write('#!/bin/bash\n\n')
                 f.write(python_string)
-
             make_executable(path)
 
             print(python_string)
 
-    # p1 = Process(target=run_experiment(args1))
-    # p1.start()
-    # p2 = Process(target=run_experiment(args2))
-    # p2.start()
-    # p1.join()
-    # p2.join()
+            # create scripts to be called in parallel
+            for idx, target_arcs in enumerate(tar_list):
+
+                assert len(target_arcs) >= 1
+                if len(target_arcs) == 1:
+                    # append an additional target arc to target_arcs to maintain the right directory name
+                    new_t = target_arcs[0] + 3
+                    target_arcs.append(new_t)
+
+                target_arcs_string = _get_string(target_arcs)
+                python_string = "python -m spinup.run_flexibility \
+                                --algo ppo  \
+                                --env_name F{}-v{} \
+                                --exp_name F{}_CH1024-128_ENV{}  \
+                                --cpu 2 \
+                                --epochs 800  \
+                                --custom_h 1024-128 \
+                                --env_version {} \
+                                --env_input {} \
+                                --target_arcs  {} \
+                                --seed {} \
+                                --save_freq 10  \
+                                --steps_per_epoch {} \
+                                --do_checkpoint_eval;".format(
+                    experiment,
+                    env_version,
+                    experiment,
+                    env_version,
+                    env_version,
+                    env_input,
+                    target_arcs_string,
+                    get_seed_str(starting_seed, num_runs),
+                    int(np.ceil((target_arcs[0] - flex_0.sum()) * epoch_episodes))
+                )
+
+                path = 'run_{}_ENV{}_batch{}_{}.sh'.format(experiment, env_version, batch, idx)
+                with open(path, 'w') as f:
+                    f.write('#!/bin/bash\n\n')
+                    f.write(python_string)
+
+                make_executable(path)
+
+                print(python_string)
