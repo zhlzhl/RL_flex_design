@@ -21,7 +21,7 @@ def collect_best_structures(experiment, env, exclude):
         if 'simple_save999999' in root:
             if all([identifier in root for identifier in [experiment, env]]):
                 if all([ex not in root for ex in exclude]):
-                # find the right directory of simple_save999999. Now retrieve the right file.
+                    # find the right directory of simple_save999999. Now retrieve the right file.
                     for file in files:
                         if 'best_eval_performance_n_structure' in file:
                             src_file = os.path.join(root, file)
@@ -46,18 +46,23 @@ def get_input_path(input):
     input_dir = os.path.join(path.parent, 'spinup/FlexibilityEnv_input', input)
     return input_dir
 
+
+def get_input(experiment):
+    if '-' in experiment:
+        exp = experiment.split('-')[0]
+    else:
+        exp = experiment
+    return INPUTS[exp]
+
+
 from spinup.FlexibilityEnv_input.FlexibilityEnv_input_files import INPUTS
 
-
-
 if __name__ == "__main__":
-    experiment = '10x10'
-
-    exclude = ['10x10b'] if experiment=='10x10' else []
+    experiment = '10x10b'
     envs = ['ENV4', 'ENV5']
-    input = INPUTS[experiment]
 
-    input_path = get_input_path(input)
+    input_path = get_input_path(INPUTS[get_input(experiment)])
+
     m, n, mean_c, mean_d, sd_d, profit_mat, target_arcs, fixed_costs, flex_0 = load_FlexibilityEnv_input(input_path)
 
     perf_dicts = []
@@ -72,7 +77,7 @@ if __name__ == "__main__":
         files = sorted(files)
 
         for file in files:
-            tar = file.split(experiment + 'T')[1].split('_SP')[0]
+            tar = file.split('T')[1].split('_SP')[0]
             with open(file, 'rb') as f:
                 best_performance, best_structure, epoch = pickle.load(f)
                 structure_performance, _ = expected_sales_for_structure(best_structure,
@@ -82,7 +87,7 @@ if __name__ == "__main__":
                                                                         demand_std=sd_d,
                                                                         flow_profits=profit_mat,
                                                                         fixed_costs=fixed_costs,
-                                                                        seed=3)
+                                                                        seed=7)
 
                 ended_fixed_costs = np.sum(np.multiply(fixed_costs, best_structure))
                 starting_fixed_costs = np.sum(np.multiply(fixed_costs, flex_0))
