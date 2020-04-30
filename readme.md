@@ -158,6 +158,12 @@ We can visualize how arcs are been added/removed during training and evaluation.
 is turned off to speed up training. Visualization during evaluation is also turned off by default. If you want to turn it on, 
 there is a quick way to set it through `spinup/user_config.py` by setting `FORCE_RENDER` to `True`. 
 
+### Monitor the training progress 
+Tensorboard is used to monitor the training progress. 
+If tensorboard is installed, launch it from command line under the same conda environment by running 
+```commandline
+tensorboard --logdir=data
+```
 ### Collect the best structures 
 Evaluation of trained models are carried during training which is specified through a combination of 
 e.g., `--save_frequency 10` and `--do_checkpoint_eval`. Trained models at each checkpoint is 
@@ -225,12 +231,6 @@ core.py file in the ppo directory specify the actor and critic networks.
 We modified core.py to add temperature into the policy action. 
 The size of the two hidden layers of the 3-layer MLP can be specified using `--custom_h`, e.g., `--custom_h 1024-128`. 
 
-## Monitor the training progress 
-Tensorboard is used to monitor the training progress. 
-If tensorboard is installed, launch it from command line under the same conda environment by running 
-```commandline
-tensorboard --logdir=data
-```
 
 Note that the default behavior is during training, rewards are calculated using 50 samples of demand to evaluate the structgure, 
 while during the evaluation, rewards are calculated using 5000 samples. 
