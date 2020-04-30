@@ -81,6 +81,52 @@ Install a Gurobi license (if you haven't already done so), by following the inst
  make sure you are on VPN of your affiliated school when 
  obtaining the license. 
 
+
+## FlexibilityEnv 
+
+description of different versions of FlexibilityEnv are to be added later. 
+
+- env_version 1 and 2 are for a special case where there is no fixed cost for each arc, and the profit matrix is one, 
+i.e., each arc all have the same profit coefficient. In particular, 
+
+..* version 1 uses the gym format where a pre-defined FlexibilityEnv is built and registered with gym. To construct
+FlexibilityEnv with env_version=1, use `gym.make(Flexibility-v0)`. 
+
+..* version 2 uses a FlexibilityEnv class which support dynamic creation of FlexibilityEnv, where the different 
+settings of FlexibilityEnv can be passed into the class during creation. 
+
+- env_version 3, 4, and 5 are for the general case of FlexibilityEnv as defined in the paper, with customizable settings 
+including fixed costs, profit-matrix, and starting_structure. 
+
+The differences among 3, 4 and 5 are that env_version 4 and 5 support dummy actions while env_version 3 does not. 
+In particular, 
+- env_version 3 supports both adding and removing an arc - if an action selects an arc that doesn't exist, 
+add the arc to the structure, otherwise, remove the arc from the structure. 
+- env_version 4 supports both adding and removing just like env_version 3. However, version 4 also has 
+an additional dummy action, and if the dummay action is selected, nothing is done to the stucture, 
+and reward is zero unless this is the final step then strcture performance is evaluated as reward. 
+-env_version 5 only add arcs. However if a selected arc already exists, then nothing is done, which 
+is equivalent to dummy actions. 
+
+Env version 3 does well when adding arcs always increases structure performance. However, when 
+adding arcs doesn't always increase structure performance due to fixed costs, Env version 4 and 5 perform 
+better. We focuse on env 5 as the mechanism is simpler. 
+
+
+## Algorithm 
+PPO algorithm is used in our RL training. We modified the ppo.py file under /spinningup/spinup/algos/ppo/ from spinningup to run our Flexibility Env. 
+ppo.py runs one experiment at a time. If multiple experiments are specified in run_flexibility.py, 
+they are passed into ppo.py sequentially. 
+
+Log files are saved in the /spinningup/data directory, unless otherwise specified in the user_config.py file. 
+
+## Neural Network Architecture 
+A three layer multi-layer perceptron (MLP) is used for both actor and critic networks. 
+core.py file in the ppo directory specify the actor and critic networks. 
+We modified core.py to add temperature into the policy action. 
+The size of the two hidden layers of the 3-layer MLP can be specified using `--custom_h`, e.g., `--custom_h 1024-128`. 
+
+
 ## Run the codes
 
 ### Run the experiments 
@@ -194,49 +240,6 @@ After collecting the best structures of different runs of the same experiment, i
 best structures are evaluated again using a fixed evaluation data to find the **best** structure. 
 Best structures are then stored in directory `10x10b` under `best_structures`, with subdirectories `ENV4` and `ENV5`, etc. 
 
-
-## Algorithm 
-PPO algorithm is used in our RL training. We modified the ppo.py file under /spinningup/spinup/algos/ppo/ from spinningup to run our Flexibility Env. 
-ppo.py runs one experiment at a time. If multiple experiments are specified in run_flexibility.py, 
-they are passed into ppo.py sequentially. 
-
-Log files are saved in the /spinningup/data directory, unless otherwise specified in the user_config.py file. 
-
-## FlexibilityEnv 
-
-description of different versions of FlexibilityEnv are to be added later. 
-
-- env_version 1 and 2 are for a special case where there is no fixed cost for each arc, and the profit matrix is one, 
-i.e., each arc all have the same profit coefficient. In particular, 
-
-..* version 1 uses the gym format where a pre-defined FlexibilityEnv is built and registered with gym. To construct
-FlexibilityEnv with env_version=1, use `gym.make(Flexibility-v0)`. 
-
-..* version 2 uses a FlexibilityEnv class which support dynamic creation of FlexibilityEnv, where the different 
-settings of FlexibilityEnv can be passed into the class during creation. 
-
-- env_version 3, 4, and 5 are for the general case of FlexibilityEnv as defined in the paper, with customizable settings 
-including fixed costs, profit-matrix, and starting_structure. 
-
-The differences among 3, 4 and 5 are that env_version 4 and 5 support dummy actions while env_version 3 does not. 
-In particular, 
-- env_version 3 supports both adding and removing an arc - if an action selects an arc that doesn't exist, 
-add the arc to the structure, otherwise, remove the arc from the structure. 
-- env_version 4 supports both adding and removing just like env_version 3. However, version 4 also has 
-an additional dummy action, and if the dummay action is selected, nothing is done to the stucture, 
-and reward is zero unless this is the final step then strcture performance is evaluated as reward. 
--env_version 5 only add arcs. However if a selected arc already exists, then nothing is done, which 
-is equivalent to dummy actions. 
-
-Env version 3 does well when adding arcs always increases structure performance. However, when 
-adding arcs doesn't always increase structure performance due to fixed costs, Env version 4 and 5 perform 
-better. We focuse on env 5 as the mechanism is simpler. 
-
-## Neural Network Architecture 
-A three layer multi-layer perceptron (MLP) is used for both actor and critic networks. 
-core.py file in the ppo directory specify the actor and critic networks. 
-We modified core.py to add temperature into the policy action. 
-The size of the two hidden layers of the 3-layer MLP can be specified using `--custom_h`, e.g., `--custom_h 1024-128`. 
 
 
 ## Directory structure 
