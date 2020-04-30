@@ -164,6 +164,13 @@ If tensorboard is installed, launch it from command line under the same conda en
 ```commandline
 tensorboard --logdir=data
 ```
+
+Note that the default behavior is during training, rewards are calculated using 50 samples of demand to evaluate the structgure, 
+while during the evaluation, rewards are calculated using 5000 samples. 
+Therefore, one important metric to look for is `Eval_EpRet-Max`, which shows the structure performance of the best out of 
+50 structures that are generated during each evaluation every `--save_freq` epoch. 
+
+
 ### Collect the best structures 
 Evaluation of trained models are carried during training which is specified through a combination of 
 e.g., `--save_frequency 10` and `--do_checkpoint_eval`. Trained models at each checkpoint is 
@@ -231,11 +238,6 @@ core.py file in the ppo directory specify the actor and critic networks.
 We modified core.py to add temperature into the policy action. 
 The size of the two hidden layers of the 3-layer MLP can be specified using `--custom_h`, e.g., `--custom_h 1024-128`. 
 
-
-Note that the default behavior is during training, rewards are calculated using 50 samples of demand to evaluate the structgure, 
-while during the evaluation, rewards are calculated using 5000 samples. 
-Therefore, one important metric to look for is `Eval_EpRet-Max`, which shows the structure performance of the best out of 
-50 structures that are generated during each evaluation every `--save_freq` epoch. 
 
 ## Directory structure 
 is mostly unchanged from spinningup. A few changes are made as listed below: 
