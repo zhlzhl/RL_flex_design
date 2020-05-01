@@ -33,8 +33,13 @@ sudo apt-get update && sudo apt-get install libopenmpi-dev
 ```
 
 _Mac OS X_
+If you have already installed `brew , run command below
 ```commandline
 brew install openmpi
+```
+Otherwise, install `brew` first using
+```commandline
+ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
 ```
 
 ### Step 2. Install RL_flex_design
