@@ -49,24 +49,6 @@ cd NRL_flex_design
 pip install -e .
 ```
 
-#### Check your install
- 
-To see if you’ve successfully installed Spinning Up, try running PPO in the LunarLander-v2 environment with
-```commandline
-python -m spinup.run ppo --hid "[32,32]" --env LunarLander-v2 --exp_name installtest --gamma 0.999
-```
-This might run for around 10 minutes, and you can leave it going in the background while you continue reading through documentation. This won’t train the agent to completion, but will run it for long enough that you can see some learning progress when the results come in.
-
-After it finishes training, watch a video of the trained policy with
-```commandline
-python -m spinup.run test_policy data/installtest/installtest_s0
-```
-
-And plot the results with
-```commandline
-python -m spinup.run plot data/installtest/installtest_s0
-```
-
 ### Step 3. Install Gurobi 
 From a terminal window issue the following command to add the Gurobi channel to your default search list
 ```commandline
@@ -85,6 +67,28 @@ Install a Gurobi license (if you haven't already done so), by following the inst
  to get a free license for academic use. If you are not on campus, 
  make sure you are on VPN of your affiliated school when 
  obtaining the license. 
+
+
+
+#### Check your install
+ 
+To see if you’ve successfully installed Spinning Up, try running PPO in the LunarLander-v2 environment with
+```commandline
+python -m spinup.run vpg --hid "[32,32]" --env LunarLander-v2 --exp_name installtest --gamma 0.999
+```
+This might run for around 10 minutes, and you can leave it going in the background while you continue reading through documentation. This won’t train the agent to completion, but will run it for long enough that you can see some learning progress when the results come in.
+
+After it finishes training, watch a video of the trained policy with
+```commandline
+python -m spinup.run test_policy data/installtest/installtest_s0
+```
+
+And plot the results with
+```commandline
+python -m spinup.run plot data/installtest/installtest_s0
+```
+
+
 
 
 ## FlexibilityEnv 
