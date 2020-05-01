@@ -5,8 +5,6 @@ import os.path as osp
 import tensorflow as tf
 from spinup import EpochLogger
 from spinup.utils.logx import restore_tf_graph
-import gym
-import flexibility
 from spinup.utils.custom_utils import get_custom_env_fn
 
 

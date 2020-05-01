@@ -74,7 +74,7 @@ Install a Gurobi license (if you haven't already done so), by following the inst
 ```commandline
 conda activate spinningup
 cd NRL_flex_design
-python -m spinup.run_flexibility --algo ppo --env_name Flexibility10x10_SP50-v5  --exp_name Flexibility10x10_SP50-v5 --cpu 2 --epochs 6 --save_freq 3 --custom_h 20-10 --env_version 5 --env_input input_ran10x10a_cv0.8.pkl --target_arcs 11
+python -m spinup.run_flexibility --algo ppo --env_name Flexibility10x10_SP50-v5  --exp_name Flexibility10x10_SP50-v5 --cpu 2 --epochs 6 --save_freq 3 --custom_h 20-10 --env_version 5 --env_input input_ran10x10a_cv0.8.pkl --target_arcs 11  --do_checkpoint_eval
 ```
 
 
