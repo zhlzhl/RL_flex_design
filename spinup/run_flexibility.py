@@ -27,6 +27,7 @@ def run_experiment(args):
     eg.add('gamma', args.gamma)
     eg.add('env_version', args.env_version)
     eg.add('env_name', args.env_name)
+    eg.add('lam', args.lam)
 
     if args.env_version >= 3:
         # args.file_path = "/home/user/git/spinningup/spinup/FlexibilityEnv/input_m8n12_cv0.8.pkl"
@@ -77,6 +78,9 @@ if __name__ == '__main__':
                         help="starting temperature used during training. If larger than 1.0, training temperature "
                              "decreases to 1.0 in the first 1/3 of epochs. ")
     parser.add_argument("--gamma", type=float, default=0.99, help="Discount factor of PPO. ")
+    parser.add_argument("--lam", type=float, default=0.97,
+                        help="Lambda for GAE-Lambda. (Always between 0 and 1, close to 1.). ")
+
     parser.add_argument('--exp_name', type=str, default='Flexibility-PPO')
 
     parser.add_argument('--env_name', type=str, default="Flexibility")
