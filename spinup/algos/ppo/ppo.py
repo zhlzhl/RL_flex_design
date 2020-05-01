@@ -1,7 +1,6 @@
 import numpy as np
 import tensorflow as tf
 import gym
-import flexibility
 import time
 import spinup.algos.ppo.core as core
 from spinup.utils.logx import EpochLogger
