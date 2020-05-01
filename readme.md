@@ -70,26 +70,6 @@ Install a Gurobi license (if you haven't already done so), by following the inst
 
 
 
-#### Check your install
- 
-To see if you’ve successfully installed Spinning Up, try running PPO in the LunarLander-v2 environment with
-```commandline
-python -m spinup.run vpg --hid "[32,32]" --env LunarLander-v2 --exp_name installtest --gamma 0.999
-```
-This might run for around 10 minutes, and you can leave it going in the background while you continue reading through documentation. This won’t train the agent to completion, but will run it for long enough that you can see some learning progress when the results come in.
-
-After it finishes training, watch a video of the trained policy with
-```commandline
-python -m spinup.run test_policy data/installtest/installtest_s0
-```
-
-And plot the results with
-```commandline
-python -m spinup.run plot data/installtest/installtest_s0
-```
-
-
-
 
 ## FlexibilityEnv 
 
@@ -147,13 +127,13 @@ For example, the commandline below allows 12 variations of experiments to be run
 ```commandline
 python -m spinup.run_flexibility 
     --algo ppo  
-    --env_name Flexibility8x16_SP50-v3 
-    --exp_name Flexibility8x16_SP50_PPO_CH1024-128_ENV3_JG  
+    --env_name Flexibility8x16_SP50-v5 
+    --exp_name Flexibility8x16_SP50_PPO_CH1024-128_ENV5_JG  
     --cpu 8 
     --epochs 400  
     --save_freq 10  
     --custom_h 1024-128 
-    --env_version 3 
+    --env_version 5 
     --env_input inputJG_m8n16_cv0.4.pkl 
     --target_arcs 27 29 31 33
     --num_runs 3
