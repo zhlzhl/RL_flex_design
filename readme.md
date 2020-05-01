@@ -44,8 +44,8 @@ ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/
 
 ### Step 2. Install RL_flex_design
 ```commandline
-git clone https://github.com/zhlzhl/RL_flex_design.git
-cd RL_flex_design
+git clone https://github.com/zhlzhl/NRL_flex_design.git
+cd NRL_flex_design
 pip install -e .
 ```
 
@@ -75,7 +75,7 @@ conda config --add channels http://conda.anaconda.org/gurobi
 
 Now issue the following command to install the Gurobi package to the RL_flex_design environment
 ```commandline
-conda activate RL_flex_design
+conda activate spinningup
 conda install gurobi
 ```
 
