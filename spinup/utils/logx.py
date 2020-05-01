@@ -223,7 +223,7 @@ class Logger:
             if osp.exists(fpath):
                 # simple_save refuses to be useful if fpath already exists,
                 # so just delete fpath if it's there.
-                shutil.rmtree(fpath)
+                shutil.rmtree(fpath, ignore_errors=True)
             tf.saved_model.simple_save(export_dir=fpath, **self.tf_saver_elements)
             joblib.dump(self.tf_saver_info, osp.join(fpath, 'model_info.pkl'))
     
