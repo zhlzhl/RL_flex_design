@@ -66,12 +66,18 @@ def expected_sales_for_structure(structure, n_sample, capacity,
                                  demand_std=None,
                                  flow_profits=None,
                                  fixed_costs=None,
-                                 seed=None):
+                                 seed=None,
+                                 test=False):
     # initialize for simulation and optimization
     n_plant, n_product = structure.shape
     plants = range(n_plant)
     products = range(n_product)
     samples = range(n_sample)
+
+    # a seed is only set during testing,
+    # i.e., for comparison of generated structures of the same experiment to choose a best one
+    if test:
+        np.random.seed(seed)
 
     # below is needed for env_version in (1, 2)
     if len(capacity) == 1:
@@ -81,12 +87,8 @@ def expected_sales_for_structure(structure, n_sample, capacity,
     if demand_std is None:
         demand_std = demand_mean * std_mean_ratio  # standard deviation vector (if needed)
     if flow_profits is None:
-        # flow_profits = np.ones((n_plant, n_product))
-        if seed is None:
-            np.random.seed(3)
-        else:
-            np.random.seed(seed)
-        flow_profits = np.random.rand(n_plant, n_product)
+        flow_profits = np.ones((n_plant, n_product))
+        print("=======\n Warning: flow_profits is not given. A uniform flow_profits is used. \n =======")
     if fixed_costs is None:
         fixed_costs = np.zeros((n_plant, n_product))
 
@@ -121,6 +123,7 @@ def expected_sales_for_structure(structure, n_sample, capacity,
     # simulate n_sample number of demands
     # for each demand, update constraint_product RHS and run model optimization to get the max profit for the demand
     for sample in samples:
+
         demand = np.random.normal(demand_mean, demand_std)
         # truncate demand at two standard deviations
         demand = np.maximum(demand, demand_mean - 2 * demand_std)

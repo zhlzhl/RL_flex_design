@@ -47,21 +47,23 @@ def get_input_path(input):
     return input_dir
 
 
-def get_input(experiment):
+def get_input_key(experiment):
     if '-' in experiment:
         exp = experiment.split('-')[0]
     else:
         exp = experiment
-    return INPUTS[exp]
+    return exp
 
 
 from spinup.FlexibilityEnv_input.FlexibilityEnv_input_files import INPUTS
 
 if __name__ == "__main__":
-    experiment = '10x10b'
-    envs = ['ENV4', 'ENV5']
+    experiment = '10x10a-lspe'
+    envs = ['ENV5']
+    print()
+    input_path = get_input_path(INPUTS[get_input_key(experiment)])
 
-    input_path = get_input_path(INPUTS[get_input(experiment)])
+    exclude = ['abcdef']
 
     m, n, mean_c, mean_d, sd_d, profit_mat, target_arcs, fixed_costs, flex_0 = load_FlexibilityEnv_input(input_path)
 
@@ -81,12 +83,13 @@ if __name__ == "__main__":
             with open(file, 'rb') as f:
                 best_performance, best_structure, epoch = pickle.load(f)
                 structure_performance, _ = expected_sales_for_structure(best_structure,
-                                                                        5000,
+                                                                        10000,
                                                                         mean_c,
                                                                         demand_mean=mean_d,
                                                                         demand_std=sd_d,
                                                                         flow_profits=profit_mat,
                                                                         fixed_costs=fixed_costs,
+                                                                        test=True,
                                                                         seed=7)
 
                 ended_fixed_costs = np.sum(np.multiply(fixed_costs, best_structure))
@@ -129,6 +132,10 @@ if __name__ == "__main__":
 
         for file in dict_tar_file.values():
             shutil.copy2(file, output_dir)
+
+        for v in dict_tar_perf.values():
+            print(v)
+
 
         print(files)
         print("---- done for {}\n\n".format(env))
