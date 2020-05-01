@@ -61,6 +61,14 @@ conda activate spinningup
 conda install gurobi
 ```
 
+#### Check the installation 
+```commandline
+conda activate spinningup
+cd NRL_flex_design
+python -m spinup.run_flexibility --algo ppo --env_name TEST --exp_name TEST --cpu 2 --epochs 8 --save_freq 4 --custom_h 20-10 --env_version 5 --env_input input_ran10x10a_cv0.8.pkl --target_arcs 11
+```
+
+
 #### Install a Gurobi License 
 Install a Gurobi license (if you haven't already done so), by following the instruction from the
  [Gurobi website](https://www.gurobi.com/academia/academic-program-and-licenses/)
