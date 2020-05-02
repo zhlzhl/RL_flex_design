@@ -11,6 +11,15 @@ FORCE_DATESTAMP = False
 # Whether to render FlexibilityEnv Viewer during evaluation
 FORCE_RENDER = False
 
+# Force Not to save model every --save_freq but only perform evaluation if --do_checkpoint_eval is set as True
+# the change is made in logx.py save_state function
+# if hasattr(self, 'tf_saver_elements'):
+#     if FORCE_NO_MODEL_SAVE:
+#         pass
+#     else:
+#         self._tf_simple_save(itr)
+FORCE_NO_MODEL_SAVE = False
+
 # Whether GridSearch provides automatically-generated default shorthands:
 DEFAULT_SHORTHAND = True
 

@@ -13,6 +13,7 @@ import tensorflow as tf
 import os.path as osp, time, atexit, os
 from spinup.utils.mpi_tools import proc_id, mpi_statistics_scalar
 from spinup.utils.serialization_utils import convert_json
+from spinup.user_config import FORCE_NO_MODEL_SAVE
 
 color2num = dict(
     gray=30,
@@ -186,7 +187,12 @@ class Logger:
                 # todo: I got this warning in the latest two runs. need to fix this.
                 self.log('Warning: could not pickle state_dict.', color='red')
             if hasattr(self, 'tf_saver_elements'):
-                self._tf_simple_save(itr)
+
+                if FORCE_NO_MODEL_SAVE:
+                    # do not safe the tensorflow model to avoid some tensorflow version non-compatiblity issue
+                    pass
+                else:
+                    self._tf_simple_save(itr)
 
     def setup_tf_saver(self, sess, inputs, outputs):
         """
