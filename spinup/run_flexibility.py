@@ -27,6 +27,9 @@ def run_experiment(args):
     eg.add('gamma', args.gamma)
     eg.add('env_version', args.env_version)
     eg.add('env_name', args.env_name)
+    eg.add('lam', args.lam)
+    if args.episodes_per_epoch is not None:
+        eg.add('episodes_per_epoch', args.episodes_per_epoch)
 
     if args.env_version >= 3:
         # args.file_path = "/home/user/git/spinningup/spinup/FlexibilityEnv/input_m8n12_cv0.8.pkl"
@@ -60,6 +63,8 @@ if __name__ == '__main__':
     parser.add_argument('--seed', nargs='+', type=int, default=None,
                         help="to directly specify seed instead of using --num_runs.")
     parser.add_argument('--steps_per_epoch', type=int, default=6000)
+    parser.add_argument('--episodes_per_epoch', type=int, default=None)
+
     parser.add_argument('--save_freq', type=int, default=5000)
 
     parser.add_argument('--eval_episodes', type=int, default=50,
@@ -77,6 +82,9 @@ if __name__ == '__main__':
                         help="starting temperature used during training. If larger than 1.0, training temperature "
                              "decreases to 1.0 in the first 1/3 of epochs. ")
     parser.add_argument("--gamma", type=float, default=0.99, help="Discount factor of PPO. ")
+    parser.add_argument("--lam", type=float, default=0.97,
+                        help="Lambda for GAE-Lambda. (Always between 0 and 1, close to 1.). ")
+
     parser.add_argument('--exp_name', type=str, default='Flexibility-PPO')
 
     parser.add_argument('--env_name', type=str, default="Flexibility")
