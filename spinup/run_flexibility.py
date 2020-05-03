@@ -28,6 +28,8 @@ def run_experiment(args):
     eg.add('env_version', args.env_version)
     eg.add('env_name', args.env_name)
     eg.add('lam', args.lam)
+    if args.episodes_per_epoch is not None:
+        eg.add('episodes_per_epoch', args.episodes_per_epoch)
 
     if args.env_version >= 3:
         # args.file_path = "/home/user/git/spinningup/spinup/FlexibilityEnv/input_m8n12_cv0.8.pkl"
@@ -61,6 +63,8 @@ if __name__ == '__main__':
     parser.add_argument('--seed', nargs='+', type=int, default=None,
                         help="to directly specify seed instead of using --num_runs.")
     parser.add_argument('--steps_per_epoch', type=int, default=6000)
+    parser.add_argument('--episodes_per_epoch', type=int, default=None)
+
     parser.add_argument('--save_freq', type=int, default=5000)
 
     parser.add_argument('--eval_episodes', type=int, default=50,

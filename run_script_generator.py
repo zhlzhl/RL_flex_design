@@ -55,7 +55,7 @@ def get_input(experiment):
 
 # INPUTS = {'10x10b': 'input_ran10x10b_cv0.8.pkl'}
 
-from spinup.FlexibilityEnv_input.FlexibilityEnv_input_files import INPUTS
+from spinup.FlexibilityEnv_input.FlexibilityEnv_INPUTS import INPUTS
 
 
 def generate_scripts_for_multiple_target_arcs(experiment, env_input, env_version_list, epoch_episodes,
@@ -208,17 +208,17 @@ def generate_scripts_for_one_target_arcs(experiment, env_input, env_version_list
 
 if __name__ == "__main__":
     # specify parameters
-    experiment = '10x10a-lspe'
+    experiment = '10x10b-lspe'
     env_input = get_input(experiment)
     env_version_list = [5]
     epoch_episodes = 800
     num_tars_per_script = 3
     # the number of entrypoints to be created with different seeds and everything else the same, the purpose is to do more parallelization
-    num_batches = 1
+    num_batches = 2
     # the number of runs with different seed for each target arc
-    num_runs = 4
-    gamma = 1.0
-    lam = 1.0
+    num_runs = 8
+    gamma = 0.99
+    lam = 0.999
 
     experiment += "-gamma{}-lam{}".format(gamma, lam)
 
