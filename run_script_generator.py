@@ -94,19 +94,19 @@ def generate_scripts_for_multiple_target_arcs(experiment, env_input, env_version
                     target_arcs.append(new_t)
 
                 target_arcs_string = _get_string(target_arcs)
-                python_string = "python -m spinup.run_flexibility \
-                                --algo ppo  \
-                                --env_name F{}-v{} \
-                                --exp_name F{}_CH1024-128_ENV{}  \
-                                --cpu 2 \
-                                --epochs 800  \
-                                --custom_h 1024-128 \
-                                --env_version {} \
-                                --env_input {} \
-                                --target_arcs  {} \
-                                --seed {} \
-                                --save_freq 10  \
-                                --steps_per_epoch {} \
+                python_string = "python -m spinup.run_flexibility   \\\n   \
+                                --algo ppo    \\\n   \
+                                --env_name F{}-v{}   \\\n   \
+                                --exp_name F{}_CH1024-128_ENV{}    \\\n   \
+                                --cpu 2   \\\n   \
+                                --epochs 800    \\\n   \
+                                --custom_h 1024-128   \\\n   \
+                                --env_version {}   \\\n   \
+                                --env_input {}   \\\n   \
+                                --target_arcs  {}   \\\n   \
+                                --seed {}   \\\n   \
+                                --save_freq 10    \\\n   \
+                                --steps_per_epoch {}   \\\n   \
                                 --do_checkpoint_eval ".format(
                     experiment,
                     env_version,
@@ -162,19 +162,45 @@ def generate_scripts_for_one_target_arcs(experiment, env_input, env_version_list
         # create scripts to be called in parallel
         for idx in range(num_runs):
 
-            python_string = "python -m spinup.run_flexibility \
-                            --algo ppo  \
-                            --env_name F{}-v{} \
-                            --exp_name F{}_CH1024-128_ENV{}_tar{}  \
-                            --cpu 2 \
-                            --epochs 800  \
-                            --custom_h 1024-128 \
-                            --env_version {} \
-                            --env_input {} \
-                            --target_arcs  {} \
-                            --seed {} \
-                            --save_freq 10  \
-                            --steps_per_epoch {} \
+            # python_string = "python -m spinup.run_flexibility \
+            #                 --algo ppo  \
+            #                 --env_name F{}-v{} \
+            #                 --exp_name F{}_CH1024-128_ENV{}_tar{}  \
+            #                 --cpu 2 \
+            #                 --epochs 800  \
+            #                 --custom_h 1024-128 \
+            #                 --env_version {} \
+            #                 --env_input {} \
+            #                 --target_arcs  {} \
+            #                 --seed {} \
+            #                 --save_freq 10  \
+            #                 --steps_per_epoch {} \
+            #                 --do_checkpoint_eval ".format(
+            #     experiment,
+            #     env_version,
+            #     experiment,
+            #     env_version,
+            #     target_arcs,
+            #     env_version,
+            #     env_input,
+            #     target_arcs,
+            #     starting_seed + 10 * idx,
+            #     int(np.ceil((target_arcs - flex_0.sum()) * epoch_episodes))
+            # )
+
+            python_string = "python -m spinup.run_flexibility  \\\n \
+                            --algo ppo  \\\n \
+                            --env_name F{}-v{}  \\\n \
+                            --exp_name F{}_CH1024-128_ENV{}_tar{}  \\\n \
+                            --cpu 2 \\\n \
+                            --epochs 800  \\\n \
+                            --custom_h 1024-128  \\\n \
+                            --env_version {}  \\\n \
+                            --env_input {}  \\\n \
+                            --target_arcs  {}  \\\n \
+                            --seed {}  \\\n \
+                            --save_freq 10   \\\n \
+                            --steps_per_epoch {}  \\\n \
                             --do_checkpoint_eval ".format(
                 experiment,
                 env_version,
@@ -208,15 +234,15 @@ def generate_scripts_for_one_target_arcs(experiment, env_input, env_version_list
 
 if __name__ == "__main__":
     # specify parameters
-    experiment = '10x10b-lspe'
+    experiment = '8x16JG'
     env_input = get_input(experiment)
     env_version_list = [5]
     epoch_episodes = 800
-    num_tars_per_script = 3
+    num_tars_per_script = 2
     # the number of entrypoints to be created with different seeds and everything else the same, the purpose is to do more parallelization
     num_batches = 2
     # the number of runs with different seed for each target arc
-    num_runs = 8
+    num_runs = 4
     gamma = 0.99
     lam = 0.999
 
