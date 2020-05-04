@@ -88,12 +88,12 @@ def remove_previously_copied_files(path):
 
 if __name__ == "__main__":
 
-    experiment = '10x10a-lspe'
+    experiment = '10x10b'
     envs = ['ENV5']
     print()
     input_path = get_input_path(INPUTS[get_input_key(experiment)])
 
-    exclude = ['abcdef']
+    exclude = ['abcdef']  # exclude is not currently used
 
     m, n, mean_c, mean_d, sd_d, profit_mat, target_arcs, fixed_costs, flex_0 = load_FlexibilityEnv_input(input_path)
 
