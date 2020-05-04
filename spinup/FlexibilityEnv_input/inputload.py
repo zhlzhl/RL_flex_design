@@ -9,6 +9,7 @@ Created on Sat Apr 18 21:20:01 2020
 import numpy as np
 import os
 import pickle
+from spinup.FlexibilityEnv_input.FlexibilityEnv_INPUTS import INPUTS
 
 
 def load_FlexibilityEnv_input(file):
@@ -27,7 +28,8 @@ def load_FlexibilityEnv_input(file):
 
 
 if __name__ == "__main__":
-    input_file = "input_ran10x10b_cv0.8.pkl"
+    experiment = '8x16JG'
+    input_file = INPUTS['8x16JG']
     file = os.path.join(os.getcwd(), input_file)
 
     m, n, mean_c, mean_d, sd_d, profit_mat, target_arcs, fixed_costs, flex_0 = load_FlexibilityEnv_input(file)
