@@ -305,7 +305,6 @@ class FlexibilityEnv(gym.Env):
         # assert action is in the right range
         assert 0 <= action < self.action_dim
 
-
         # action is the index of the link to be changed. If the link already exists, then the action is to remove it,
         # otherwise, the action is to add it.
         # perform adding/removing the arc identified by the action
@@ -313,7 +312,7 @@ class FlexibilityEnv(gym.Env):
             row_index = int(action / self.n_product)
             col_index = int(action % self.n_product)
             self.adjacency_matrix[row_index, col_index] = (self.adjacency_matrix[row_index, col_index] + 1) % 2
-        elif self.env_version ==4 or self.env_version > 40:  # env_version == 4 or >40
+        elif self.env_version == 4 or self.env_version > 40:  # env_version == 4 or >40
             if action >= self.n_product * self.n_plant:
                 # this is the dummy action. Do not change adjacency matrix.
                 self.action_is_dummy = True
@@ -464,17 +463,18 @@ class FlexibilityEnv(gym.Env):
 # TODO: revert it back to class Viewer(pyglet.window.Window)
 class Viewer():
 
- def __init__(self, adjacency_matrix, width=600, height=400):
-    pass
+    def __init__(self, adjacency_matrix, width=600, height=400):
+        pass
 
- def render(self):
-    pass
+    def render(self):
+        pass
 
- def on_draw(self):
-    pass
+    def on_draw(self):
+        pass
 
- def _update_image(self):
-    pass
+    def _update_image(self):
+        pass
+
 
 if __name__ == '__main__':
     ### calculate expected sales of structure with full flexibility 10x10
