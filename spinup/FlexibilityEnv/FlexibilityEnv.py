@@ -424,40 +424,57 @@ class FlexibilityEnv(gym.Env):
             self.viewer.close()
 
 
-class Viewer(pyglet.window.Window):
+# class Viewer(pyglet.window.Window):
+#
+#     def __init__(self, adjacency_matrix, width=600, height=400):
+#         self.adjacency_matrix = adjacency_matrix
+#
+#         vsync = False  # to not use the monitor FPS, we can speed up training
+#         super(Viewer, self).__init__(width=width, height=height, resizable=False, caption='Flexibility', vsync=vsync)
+#         dpi_res = min(self.width, self.height) / 4 / np.floor(height / 200)
+#         self.fig = Figure((self.width / dpi_res, self.height / dpi_res), dpi=dpi_res)
+#         self.image = None
+#
+#     def render(self):
+#         self._update_image()
+#         self.switch_to()
+#         self.dispatch_events()
+#         self.dispatch_event('on_draw')
+#         self.flip()
+#
+#     def on_draw(self):
+#         self.clear()
+#         self.image.blit(0, 0)
+#
+#     def _update_image(self):
+#         plot_structure(self.adjacency_matrix, self.fig)
+#         # self.image = self._render_figure(fig)
+#         w, h = self.fig.get_size_inches()
+#         dpi_res = self.fig.get_dpi()
+#         w, h = int(np.ceil(w * dpi_res)), int(np.ceil(h * dpi_res))
+#
+#         canvas = FigureCanvasAgg(self.fig)
+#         buffer = BytesIO()
+#         canvas.print_raw(buffer, dpi=dpi_res)
+#         self.image = pyglet.image.ImageData(w, h, 'RGBA', buffer.getvalue(), -4 * w)
 
-    def __init__(self, adjacency_matrix, width=600, height=400):
-        self.adjacency_matrix = adjacency_matrix
 
-        vsync = False  # to not use the monitor FPS, we can speed up training
-        super(Viewer, self).__init__(width=width, height=height, resizable=False, caption='Flexibility', vsync=vsync)
-        dpi_res = min(self.width, self.height) / 4 / np.floor(height / 200)
-        self.fig = Figure((self.width / dpi_res, self.height / dpi_res), dpi=dpi_res)
-        self.image = None
+# temporarily replaced the pyglet viewer of FlexibilityEnv with a skeleton which does nothing to allow the codes
+# to be run on a server.
+# TODO: revert it back to class Viewer(pyglet.window.Window)
+class Viewer():
 
-    def render(self):
-        self._update_image()
-        self.switch_to()
-        self.dispatch_events()
-        self.dispatch_event('on_draw')
-        self.flip()
+ def __init__(self, adjacency_matrix, width=600, height=400):
+    pass
 
-    def on_draw(self):
-        self.clear()
-        self.image.blit(0, 0)
+ def render(self):
+    pass
 
-    def _update_image(self):
-        plot_structure(self.adjacency_matrix, self.fig)
-        # self.image = self._render_figure(fig)
-        w, h = self.fig.get_size_inches()
-        dpi_res = self.fig.get_dpi()
-        w, h = int(np.ceil(w * dpi_res)), int(np.ceil(h * dpi_res))
+ def on_draw(self):
+    pass
 
-        canvas = FigureCanvasAgg(self.fig)
-        buffer = BytesIO()
-        canvas.print_raw(buffer, dpi=dpi_res)
-        self.image = pyglet.image.ImageData(w, h, 'RGBA', buffer.getvalue(), -4 * w)
-
+ def _update_image(self):
+    pass
 
 if __name__ == '__main__':
     ### calculate expected sales of structure with full flexibility 10x10
