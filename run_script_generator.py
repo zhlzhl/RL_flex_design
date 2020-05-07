@@ -234,7 +234,7 @@ def generate_scripts_for_one_target_arcs(experiment, env_input, env_version_list
 
 if __name__ == "__main__":
     # specify parameters
-    experiment = '8x16JG'
+    experiment = '10x10Obermeyerm'
     env_input = get_input(experiment)
     env_version_list = [5]
     epoch_episodes = 800
@@ -242,20 +242,22 @@ if __name__ == "__main__":
     # the number of entrypoints to be created with different seeds and everything else the same, the purpose is to do more parallelization
     num_batches = 2
     # the number of runs with different seed for each target arc
-    num_runs = 4
+    num_runs = 3
     gamma = 0.99
     lam = 0.999
 
     experiment += "-gamma{}-lam{}".format(gamma, lam)
 
-    # to generate scripts for a list of target_arcs. make sure the sub_groups of target_arcs in each script is at least two.
-    # this allows log directories to be created with tar_arc specified in the directory name
-    generate_scripts_for_multiple_target_arcs(experiment, env_input, env_version_list, epoch_episodes,
-                                              num_tars_per_script, num_batches, num_runs, gamma, lam)
+    # # to generate scripts for a list of target_arcs. make sure the sub_groups of target_arcs in each script is at least two.
+    # # this allows log directories to be created with tar_arc specified in the directory name
+    # generate_scripts_for_multiple_target_arcs(experiment, env_input, env_version_list, epoch_episodes,
+    #                                           num_tars_per_script, num_batches, num_runs, gamma, lam)
 
-    # # to generate scripts for one particular target_arcs but with different seeds, which will then be called in parallel
-    # target_arcs = 31
-    # num_runs = 4
-    # starting_seed = 500
-    # generate_scripts_for_one_target_arcs(experiment, env_input, env_version_list, epoch_episodes,
-    #                                      target_arcs, num_batches, num_runs, starting_seed, gamma, lam)
+    # to generate scripts for one particular target_arcs but with different seeds, which will then be called in parallel
+    target_arcs_list = [10]
+
+    for target_arcs in target_arcs_list:
+        num_runs = 8
+        starting_seed = 200
+        generate_scripts_for_one_target_arcs(experiment, env_input, env_version_list, epoch_episodes,
+                                             target_arcs, num_batches, num_runs, starting_seed, gamma, lam)

@@ -88,7 +88,7 @@ def remove_previously_copied_files(path):
 
 if __name__ == "__main__":
 
-    experiment = '10x10b'
+    experiment = '10x10Obermeyerm'
     envs = ['ENV5']
     print()
     input_path = get_input_path(INPUTS[get_input_key(experiment)])
@@ -188,6 +188,8 @@ if __name__ == "__main__":
 
         [print(key, " :: ", value) for (key, value) in sorted(dict_tar_perf.items())]
 
+        print("Only printing out values for easy copy/paste to excel file")
+        [print(value) for (key, value) in sorted(dict_tar_perf.items())]
 
         # todo add the print of the original files of best structure selected
 

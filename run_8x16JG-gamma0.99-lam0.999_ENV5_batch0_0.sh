@@ -10,7 +10,7 @@ python -m spinup.run_flexibility   \
                                    --env_version 5   \
                                    --env_input input_JGm8n16_cv0.8.pkl   \
                                    --target_arcs  16 19    \
-                                   --seed 0 10 20 30   \
+                                   --seed 0 10 20   \
                                    --save_freq 10    \
                                    --steps_per_epoch 13600   \
                                    --do_checkpoint_eval  --gamma 0.99    --lam 0.999;

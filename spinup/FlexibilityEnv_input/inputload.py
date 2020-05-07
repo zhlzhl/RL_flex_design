@@ -28,8 +28,8 @@ def load_FlexibilityEnv_input(file):
 
 
 if __name__ == "__main__":
-    experiment = '8x16JG'
-    input_file = INPUTS['8x16JG']
+    experiment = '10x10Obermeyerm'
+    input_file = INPUTS[experiment]
     file = os.path.join(os.getcwd(), input_file)
 
     m, n, mean_c, mean_d, sd_d, profit_mat, target_arcs, fixed_costs, flex_0 = load_FlexibilityEnv_input(file)
