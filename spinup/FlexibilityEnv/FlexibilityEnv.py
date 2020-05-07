@@ -74,9 +74,9 @@ def expected_sales_for_structure(structure, n_sample, capacity,
     products = range(n_product)
     samples = range(n_sample)
 
-    # a seed is only set during testing,
-    # i.e., for comparison of generated structures of the same experiment to choose a best one
-    if test:
+    # a seed is set 1) during testing for comparison of generated structures of the same experiment to choose a best one
+    # and 2) during training when self.subtract_full_flexibility_performance is True
+    if seed is not None:
         np.random.seed(seed)
 
     # below is needed for env_version in (1, 2)
@@ -237,7 +237,9 @@ class FlexibilityEnv(gym.Env):
             profit_matrix=None,
             fixed_costs=None,
             starting_structure=None,
-            std_mean_ratio=None
+            std_mean_ratio=None,
+            subtract_full_flexibility_performance=False
+            # to subtract profit of full_flexibility in reward to reduce variance
 
     ):
         self.n_plant = n_plant
@@ -279,6 +281,9 @@ class FlexibilityEnv(gym.Env):
 
         # added for env_version == 5
         self.action_is_dummy = False
+
+        # added for subtract_full_flexibility_performance
+        self.subtract_full_flexibility_performance = subtract_full_flexibility_performance
 
         self.viewer = None
         self.state_dim = n_plant * n_product  # do not include self.target_arcs
@@ -361,14 +366,29 @@ class FlexibilityEnv(gym.Env):
 
                 else:  # self.env_version >= 3:
                     # evaluate structure performance
+                    seed_for_perf_evaluation = int(time.time())
                     structure_performance, _ = expected_sales_for_structure(self.adjacency_matrix,
                                                                             self.n_sample,
                                                                             self.capacity_mean,
                                                                             demand_mean=self.demand_mean,
                                                                             demand_std=self.demand_std,
                                                                             flow_profits=self.profit_matrix,
-                                                                            fixed_costs=self.fixed_costs)
+                                                                            fixed_costs=self.fixed_costs,
+                                                                            seed=seed_for_perf_evaluation)
+
                     r += structure_performance
+
+                    if self.subtract_full_flexibility_performance:
+                        full_flex_matrix = np.ones((self.n_plant, self.n_product))
+                        full_flex_perf, _ = expected_sales_for_structure(full_flex_matrix,
+                                                                      self.n_sample,
+                                                                      self.capacity_mean,
+                                                                      demand_mean=self.demand_mean,
+                                                                      demand_std=self.demand_std,
+                                                                      flow_profits=self.profit_matrix,
+                                                                      fixed_costs=self.fixed_costs,
+                                                                      seed=seed_for_perf_evaluation)
+                        r -= full_flex_perf
 
         elif self.reward_shaping == "SALES_INCREMENT":
             # evaluate structure performance

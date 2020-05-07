@@ -314,7 +314,7 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
             terminal = d or (ep_len == max_ep_len)
 
             if terminal or (t == local_steps_per_epoch - 1):
-                if not (terminal):
+                if not terminal:
                     print('Warning: trajectory cut off by epoch at %d steps.' % ep_len)
                 # if trajectory didn't reach terminal state, bootstrap value target
                 last_val = r if d else sess.run(v, feed_dict={x_ph: o.reshape(1, -1),
