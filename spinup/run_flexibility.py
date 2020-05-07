@@ -27,6 +27,7 @@ def run_experiment(args):
     eg.add('gamma', args.gamma)
     eg.add('env_version', args.env_version)
     eg.add('env_name', args.env_name)
+    eg.add('env_subtract_full_flex', args.env_subtract_full_flex)
     eg.add('lam', args.lam)
     if args.episodes_per_epoch is not None:
         eg.add('episodes_per_epoch', args.episodes_per_epoch)
@@ -96,6 +97,9 @@ if __name__ == '__main__':
                         help="number of samples to draw during structure performance evaluation")
     parser.add_argument("--env_input", type=str, default=None,
                         help="input file specifying settings for FlexibilityEnv")
+    parser.add_argument("--env_subtract_full_flex", action='store_true',
+                        help="Whether to substract full flexibility performance from structure performance in reward "
+                             "to reduce variance")
 
     parser.add_argument('--target_arcs', type=int, nargs='+', default=None,
                         help="to specify target arcs with different values, e.g., 27 29 31 33."

@@ -160,9 +160,10 @@ def call_experiment(exp_name, thunk, seed=0, num_cpu=1, data_dir=None,
                                                      env_version=kwargs['env_version'],
                                                      target_arcs=kwargs['target_arcs'],
                                                      env_input=kwargs['env_input'],
-                                                     env_n_sample=kwargs['env_n_sample'])
+                                                     env_n_sample=kwargs['env_n_sample'],
+                                                     subtract_full_flexibility_performance=kwargs['env_subtract_full_flex'])
 
-                del kwargs['env_n_sample']
+                del kwargs['env_n_sample'], kwargs['env_subtract_full_flex']
 
         # Fork into multiple processes
         mpi_fork(num_cpu)

@@ -135,7 +135,8 @@ def _parse_attributes(env_name):
     return n_plant, n_product, target_arcs, n_sample
 
 
-def get_custom_env_fn(env_name, env_version=None, target_arcs=None, env_input=None, env_n_sample=None):
+def get_custom_env_fn(env_name, env_version=None, target_arcs=None, env_input=None, env_n_sample=None,
+                      subtract_full_flexibility_performance=False):
     if env_version in (1, 2):
         # parse FlexibilityEnv settings from env_name
         n_plant, n_product, target_arcs, n_sample = _parse_attributes(env_name)
@@ -175,9 +176,12 @@ def get_custom_env_fn(env_name, env_version=None, target_arcs=None, env_input=No
                                  demand_std=sd_d,
                                  profit_matrix=profit_mat,
                                  fixed_costs=fixed_costs,
-                                 starting_structure=flex_0)
-                print('using env: {} | n_plant: {} | n_product: {} | target_arcs: {} | n_sample: {} | env_version: {}'
-                      .format(env_name, n_plant, n_product, target_arcs, env_n_sample, env_version))
+                                 starting_structure=flex_0,
+                                 subtract_full_flexibility_performance=subtract_full_flexibility_performance)
+                print('using env: {} | n_plant: {} | n_product: {} | target_arcs: {} | n_sample: {} | env_version: {} '
+                      '| subtract_full_flex: {}'
+                      .format(env_name, n_plant, n_product, target_arcs, env_n_sample, env_version,
+                              subtract_full_flexibility_performance))
 
     return CustomFlexibilityEnv
 
