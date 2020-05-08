@@ -60,7 +60,7 @@ from spinup.FlexibilityEnv_input.FlexibilityEnv_INPUTS import INPUTS
 
 def generate_scripts_for_multiple_target_arcs(experiment, env_input, env_version_list, epoch_episodes,
                                               num_tars_per_script, num_batches, num_runs, gamma=None, lam=None,
-                                              variance_reduction=False):
+                                              variance_reduction=False, env_n_sample=50):
     m, n, mean_c, mean_d, sd_d, profit_mat, target_arcs, fixed_costs, flex_0 = load_FlexibilityEnv_input(
         _get_full_path(env_input))
     print("number of existing arcs {}".format(flex_0.sum()))
@@ -123,6 +123,9 @@ def generate_scripts_for_multiple_target_arcs(experiment, env_input, env_version
                 if variance_reduction:
                     python_string += '                                   --env_subtract_full_flex  \\\n'
 
+                if env_n_sample != 50:
+                    python_string += '                                   --env_n_sample {}  \\\n'.format(env_n_sample)
+
                 if gamma is not None:
                     python_string += '                                   --gamma {}   \\\n'.format(gamma)
 
@@ -142,8 +145,8 @@ def generate_scripts_for_multiple_target_arcs(experiment, env_input, env_version
 
 
 def generate_scripts_for_one_target_arcs(experiment, env_input, env_version_list, epoch_episodes, target_arcs,
-                                         num_batches, num_runs, starting_seed, gamma=None, lam=None,
-                                         variance_reduction=False):
+                                         num_runs, starting_seed, gamma=None, lam=None,
+                                         variance_reduction=False, env_n_sample=50):
     m, n, mean_c, mean_d, sd_d, profit_mat, _, fixed_costs, flex_0 = load_FlexibilityEnv_input(
         _get_full_path(env_input))
     print("number of existing arcs {}".format(flex_0.sum()))
@@ -196,6 +199,9 @@ def generate_scripts_for_one_target_arcs(experiment, env_input, env_version_list
             if variance_reduction:
                 python_string += '                             --env_subtract_full_flex  \\\n'
 
+            if env_n_sample != 50:
+                python_string += '                             --env_n_sample {}  \\\n'.format(env_n_sample)
+
             if gamma is not None:
                 python_string += '                             --gamma {}  \\\n'.format(gamma)
 
@@ -224,28 +230,32 @@ if __name__ == "__main__":
     # the number of entrypoints to be created with different seeds and everything else the same, the purpose is to do more parallelization
     num_batches = 2
     # the number of runs with different seed for each target arc
-    num_runs = 3
+    num_runs = 6
     gamma = 0.99
     lam = 0.999
-    variance_reduction = True
+    variance_reduction = False  # for this version of the paper, we do not use variance reduction, i.e., VR=False
+    env_n_sample = 10
 
     experiment += "-gamma{}-lam{}".format(gamma, lam)
 
     if variance_reduction:
         experiment += "-VR"
 
-    # # to generate scripts for a list of target_arcs. make sure the sub_groups of target_arcs in each script is at least two.
-    # # this allows log directories to be created with tar_arc specified in the directory name
-    # generate_scripts_for_multiple_target_arcs(experiment, env_input, env_version_list, epoch_episodes,
-    #                                           num_tars_per_script, num_batches, num_runs, gamma, lam,
-    #                                           variance_reduction)
+    if env_n_sample is not None:
+        experiment += "-SP{}".format(env_n_sample)
 
-    # to generate scripts for one particular target_arcs but with different seeds, which will then be called in parallel
-    target_arcs_list = [10]
+    # to generate scripts for a list of target_arcs. make sure the sub_groups of target_arcs in each script is at least two.
+    # this allows log directories to be created with tar_arc specified in the directory name
+    generate_scripts_for_multiple_target_arcs(experiment, env_input, env_version_list, epoch_episodes,
+                                              num_tars_per_script, num_batches, num_runs, gamma, lam,
+                                              variance_reduction, env_n_sample)
 
-    for target_arcs in target_arcs_list:
-        num_runs = 6
-        starting_seed = 100
-        generate_scripts_for_one_target_arcs(experiment, env_input, env_version_list, epoch_episodes,
-                                             target_arcs, num_batches, num_runs, starting_seed, gamma, lam,
-                                             variance_reduction)
+    # # to generate scripts for one particular target_arcs but with different seeds, which will then be called in parallel
+    # target_arcs_list = [10]
+    #
+    # for target_arcs in target_arcs_list:
+    #     num_runs = 12
+    #     starting_seed = 200
+    #     generate_scripts_for_one_target_arcs(experiment, env_input, env_version_list, epoch_episodes,
+    #                                          target_arcs, num_runs, starting_seed, gamma, lam,
+    #                                          variance_reduction, env_n_sample)

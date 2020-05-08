@@ -9,8 +9,6 @@ from spinup.FlexibilityEnv.FlexibilityEnv import expected_sales_for_structure
 from spinup.FlexibilityEnv_input.FlexibilityEnv_INPUTS import INPUTS
 
 
-
-
 # looking for filenames starting with "best_eval_performance_n_structure", in sub-directory "simple_save999999" of
 # sub-directory of specified directory
 def collect_best_structures(experiment, env, exclude):
@@ -63,7 +61,6 @@ def get_input_key(experiment):
 
 
 def append_suffix(dst_file, count):
-
     dst_file = "{}_SF{}.pkl".format(dst_file.split('.pk')[0], count)
 
     return dst_file
@@ -99,8 +96,6 @@ if __name__ == "__main__":
 
     # first remove all previously copied best_eval_performance_n_structure pickle files
     remove_previously_copied_files(os.getcwd())
-
-
 
     perf_dicts = []
     files_dicts = []
