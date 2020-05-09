@@ -50,7 +50,10 @@ def save_best_eval(best_performance, best_structure, epoch, env_name, log_dir, s
 
 def save_one_eval(performance, structure, env_name, log_dir, epoch, seed, episode):
     pickle_data = (performance, structure, epoch)
-    with open(os.path.join(log_dir, "best_eval_performance_n_structure_{}_s{}_epoch{}_episode{}"
+    log_dir = os.path.join(log_dir, 'eval_perf_n_structs')
+    if not os.path.exists(log_dir):
+        os.mkdir(log_dir)
+    with open(os.path.join(log_dir, "eval_performance_n_structure_{}_s{}_epoch{}_episode{}"
                                     ".pkl".format(env_name, seed, epoch, episode)), 'wb') as f:
         pickle.dump(pickle_data, f)
 

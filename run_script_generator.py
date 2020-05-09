@@ -296,7 +296,7 @@ if __name__ == "__main__":
     early_stop = -1
     epoch = 360
     target_arcs_list = [13, 22]
-    save_freq = 40
+    save_freq = 30
     save_all_eval = True
 
     for target_arcs in target_arcs_list:
