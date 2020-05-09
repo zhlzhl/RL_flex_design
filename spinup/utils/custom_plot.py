@@ -75,6 +75,10 @@ def get_Tarc(exp_name):
         # use the second split to split again
         target_arc = splits[1].split('_')[0]
         return "T{}".format(target_arc)
+    elif 'tar' in exp_name:
+        splits = exp_name.split('tar')
+        target_arc = splits[-1]
+        return "tar{}".format(target_arc)
     else:
         print("exp_name {} doesn't not contain 'T'".format(exp_name))
         return exp_name
@@ -155,16 +159,22 @@ def get_datasets_by_identifier(logdir_identifiers, data_dir=None):
         # get data dir /home/user/git/spinningup/data
         data_dir = osp.join(parent_path, 'data')
 
-    # walk through data dir and look for log_dir that match with logdir_identifier
-    for root, dir_list, file_list in os.walk(data_dir):
-        if dir_list is not None:
-            for dir in dir_list:
+    for root, dirs, files in os.walk(data_dir):
+        if match_all_idenfiers(root, logdir_identifiers):
+            for dir in dirs:
                 if match_all_idenfiers(dir, logdir_identifiers):
-                    for s_root, s_dir_list, s_file_list in os.walk(osp.join(root, dir)):
-                        if s_dir_list is not None:
-                            for s_dir in s_dir_list:
-                                if match_all_idenfiers(s_dir, logdir_identifiers):
-                                    target_logdirs.append(osp.join(root, s_root, s_dir))
+                    target_logdirs.append(osp.join(root, dir))
+
+    # # walk through data dir and look for log_dir that match with logdir_identifier
+    # for root, dir_list, file_list in os.walk(data_dir):
+    #     if dir_list is not None:
+    #         for dir in dir_list:
+    #             if match_all_idenfiers(dir, logdir_identifiers):
+    #                 for s_root, s_dir_list, s_file_list in os.walk(osp.join(root, dir)):
+    #                     if s_dir_list is not None:
+    #                         for s_dir in s_dir_list:
+    #                             if match_all_idenfiers(s_dir, logdir_identifiers):
+    #                                 target_logdirs.append(osp.join(root, s_root, s_dir))
 
     return target_logdirs
 
@@ -303,6 +313,7 @@ def main():
     # sort the dirs by 1) getting the last directory from the path using split('/')[-1], and 2) removing the dates in
     # the dir name only getting characters after indexed by 20 and above
     logdirs = sorted(logdirs, key= lambda x : x.split('/')[-1][20:])
+    print(logdirs)
 
     make_plots(logdirs, args.legend, args.xaxis, args.value, args.count,
                smooth=args.smooth, select=args.select, exclude=args.exclude,

@@ -85,14 +85,20 @@ def remove_previously_copied_files(path):
 
 if __name__ == "__main__":
 
-    experiment = '10x10Obermeyerm'
+    experiment = '10x10Obermeyerm-gamma0.99-lam0.999_'
     envs = ['ENV5']
     print()
+    # get the input key from the experiment, e.g., get '10x10Obermeyerm' from '10x10Obermeyerm-gamma0.99-lam0.999-SP10',
+    # then use it to locate the input file name,
+    # and then the path of the input file
     input_path = get_input_path(INPUTS[get_input_key(experiment)])
 
     exclude = ['abcdef']  # exclude is not currently used
 
     m, n, mean_c, mean_d, sd_d, profit_mat, target_arcs, fixed_costs, flex_0 = load_FlexibilityEnv_input(input_path)
+
+    # # todo delete the line below
+    # target_arcs = [22]
 
     # first remove all previously copied best_eval_performance_n_structure pickle files
     remove_previously_copied_files(os.getcwd())
