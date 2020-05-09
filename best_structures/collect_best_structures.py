@@ -97,8 +97,8 @@ if __name__ == "__main__":
 
     m, n, mean_c, mean_d, sd_d, profit_mat, target_arcs, fixed_costs, flex_0 = load_FlexibilityEnv_input(input_path)
 
-    # # todo delete the line below
-    # target_arcs = [22]
+    # todo delete the line below
+    target_arcs = [13, 22, 25]
 
     # first remove all previously copied best_eval_performance_n_structure pickle files
     remove_previously_copied_files(os.getcwd())

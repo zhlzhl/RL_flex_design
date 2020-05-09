@@ -1,3 +1,0 @@
-#!/bin/bash
-
-python -m spinup.run_flexibility                             --algo ppo                              --env_name F10x10a-lspe-v5                             --exp_name F10x10a-lspe_CH1024-128_ENV5_tar31                              --cpu 2                             --epochs 800                              --custom_h 1024-128                             --env_version 5                             --env_input input_ran10x10a_cv0.8.pkl                             --target_arcs  31                             --seed 500                             --save_freq 10                              --steps_per_epoch 24800                             --do_checkpoint_eval;
