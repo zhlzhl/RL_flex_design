@@ -48,11 +48,21 @@ def save_best_eval(best_performance, best_structure, epoch, env_name, log_dir, s
         pickle.dump(pickle_data, f)
 
 
+def save_one_eval(performance, structure, env_name, log_dir, epoch, seed, episode):
+    pickle_data = (performance, structure, epoch)
+    with open(os.path.join(log_dir, "best_eval_performance_n_structure_{}_s{}_epoch{}_episode{}"
+                                    ".pkl".format(env_name, seed, epoch, episode)), 'wb') as f:
+        pickle.dump(pickle_data, f)
+
+
 # to be used for testing policy during training
 def eval_and_save_best_model(
-        best_eval_AverageEpRet, best_eval_StdEpRet, eval_logger, train_logger, tb_logger, epoch,
-        env_name, env_version, env_input, target_arcs, get_action, render=False, n_sample=5000,
-        num_episodes=50, save=False, seed=0
+        best_eval_AverageEpRet, best_eval_StdEpRet,
+        eval_logger, train_logger, eval_progress_logger, tb_logger,
+        epoch, env_name, env_version, env_input,
+        target_arcs, get_action, render=False, n_sample=5000,
+        num_episodes=50, seed=0, save_all_eval=False
+
 ):
     # for envs with different versions of different n_sample, choose a corresponding env with indicated n_sample for
     # testing. Only useful for env_version == 1 or 2. This is not effective for env_version == 3
@@ -63,17 +73,20 @@ def eval_and_save_best_model(
                                                                                        target_arcs,
                                                                                        get_action,
                                                                                        logger=eval_logger,
+                                                                                       logger_eval_progress=eval_progress_logger,
                                                                                        tb_logger=tb_logger,
                                                                                        epoch=epoch,
                                                                                        max_ep_len=70,
                                                                                        render=False,
                                                                                        n_sample=n_sample,
-                                                                                       n_episodes=num_episodes)
+                                                                                       n_episodes=num_episodes,
+                                                                                       seed=seed,
+                                                                                       save_all_eval=save_all_eval)
 
     saved = False
     if best_eval_AverageEpRet < mean:
         best_eval_AverageEpRet = mean
-        if (std <= best_eval_StdEpRet * 1.5) and save:
+        if (std <= best_eval_StdEpRet * 1.5):
             # save the best model so far to simple_save999999. This is a hack to leverage the available codes to save
             # the best model identified by episode 999999
             train_logger.save_state({'env_name': eval_env_name}, itr=999999)
@@ -151,7 +164,8 @@ def get_custom_env_fn(env_name, env_version=None, target_arcs=None, env_input=No
 
     else:  # env_version in (3, 4, >40, 5):
         # load FlexibilityEnv settings from env_input
-        n_plant, n_product, mean_c, mean_d, sd_d, profit_mat, _, fixed_costs, flex_0 = load_FlexibilityEnv_input(env_input)
+        n_plant, n_product, mean_c, mean_d, sd_d, profit_mat, _, fixed_costs, flex_0 = load_FlexibilityEnv_input(
+            env_input)
 
         def to_numpy_array(obj):
             if isinstance(obj, list):
@@ -168,7 +182,8 @@ def get_custom_env_fn(env_name, env_version=None, target_arcs=None, env_input=No
             def __init__(self):
                 super().__init__(n_plant=n_plant,
                                  n_product=n_product,
-                                 target_arcs=target_arcs,  # for env_version=3, target_arcs is passed into the function call
+                                 target_arcs=target_arcs,
+                                 # for env_version=3, target_arcs is passed into the function call
                                  n_sample=env_n_sample,
                                  capacity_mean=mean_c,
                                  env_version=env_version,
@@ -187,8 +202,9 @@ def get_custom_env_fn(env_name, env_version=None, target_arcs=None, env_input=No
 
 
 def run_policy_with_custom_logging(env_name, env_version, env_input, target_arcs,
-                                   get_action, logger, tb_logger, epoch,
-                                   max_ep_len=None, n_episodes=150, render=False, n_sample=5000):
+                                   get_action, logger, logger_eval_progress, tb_logger, epoch,
+                                   max_ep_len=None, n_episodes=150, render=False, n_sample=5000,
+                                   seed=None, save_all_eval=False):
     if env_version in (1, 2):
         env = get_custom_env_fn(env_name, env_version)()
     else:  # env_version in (3, 4, >40, 5):
@@ -222,12 +238,28 @@ def run_policy_with_custom_logging(env_name, env_version, env_input, target_arcs
 
         if d or (ep_len == max_ep_len):
             logger.store(EpRet=ep_ret, EpLen=ep_len, EpTotalArcs=env.adjacency_matrix.sum())
-            print('Episode %d \t EpRet %.3f \t EpLen %d' % (n, ep_ret, ep_len))
+
+            if save_all_eval:
+                logger_eval_progress.log_tabular('Seed', seed)
+                logger_eval_progress.log_tabular('Epoch', epoch)
+                logger_eval_progress.log_tabular('Episode', n)
+                logger_eval_progress.log_tabular('EpRet', ep_ret)
+                logger_eval_progress.log_tabular('EpLen', ep_len)
+                logger_eval_progress.dump_tabular()
+                save_one_eval(performance=ep_ret,
+                              structure=np.squeeze(o).reshape(n_plant, n_product),
+                              env_name=env_name,
+                              log_dir=logger_eval_progress.output_dir,
+                              epoch=epoch,
+                              seed=seed,
+                              episode=n)
+
+            else:
+                print('Episode %d \t EpRet %.3f \t EpLen %d' % (n, ep_ret, ep_len))
 
             if best_performance < ep_ret:
                 best_performance = ep_ret
                 best_structure = np.squeeze(o).reshape(n_plant, n_product)
-                # save_best_eval(best_performance, best_structure, epoch, env_name, log_dir=logger.output_dir)
 
             o, r, d, ep_ret, ep_len = env.reset(), 0, False, 0, 0
             n += 1
@@ -236,26 +268,6 @@ def run_policy_with_custom_logging(env_name, env_version, env_input, target_arcs
 
     log_key_to_tb(tb_logger, logger, epoch, key="EpLen", with_min_and_max=False, eval=True)
     log_key_to_tb(tb_logger, logger, epoch, key="EpTotalArcs", with_min_and_max=False, eval=True)
-
-
-    # ### below is for debugging
-    # if env_version >= 3:
-    #     # evaluate structure performance
-    #     structure_performance, _ = expected_sales_for_structure(best_structure,
-    #                                                             env.n_sample,
-    #                                                             env.capacity_mean,
-    #                                                             demand_mean=env.demand_mean,
-    #                                                             demand_std=env.demand_std,
-    #                                                             flow_profits=env.profit_matrix,
-    #                                                             fixed_costs=env.fixed_costs)
-    #     ended_fixed_costs = np.sum(np.multiply(env.fixed_costs, best_structure))
-    #     starting_fixed_costs = np.sum(np.multiply(env.fixed_costs, env.starting_structure))
-    #     fixed_costs = - (ended_fixed_costs - starting_fixed_costs)
-    #     best_performance_directly_computed = structure_performance + fixed_costs
-    #
-    #     logger.store(BestStructPerf=best_performance_directly_computed)
-    #     log_key_to_tb(tb_logger, logger, epoch, key="BestStructPerf", with_min_and_max=False, eval=True)
-    #     logger.log_tabular('BestStructPerf', with_min_and_max=True)
 
     logger.log_tabular('EpRet', with_min_and_max=True)
     logger.log_tabular('EpLen', average_only=True)
@@ -294,7 +306,6 @@ class DummyActionStats:
         if done:
             # compute stats
             pass
-
 
     def reset(self):
         self.dummy_action_count = 0

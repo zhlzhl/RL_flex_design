@@ -103,7 +103,7 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
         vf_lr=1e-3, train_pi_iters=80, train_v_iters=80, lam=0.97, max_ep_len=1000,
         target_kl=0.01, logger_kwargs=dict(), save_freq=10, custom_h=None, eval_episodes=50,
         do_checkpoint_eval=False, env_name=None, eval_temp=1.0, train_starting_temp=1.0,
-        env_version=None, env_input=None, target_arcs=None):
+        env_version=None, env_input=None, target_arcs=None, early_stop_epochs=None, save_all_eval=False):
     """
 
     Args:
@@ -175,9 +175,17 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
             the current policy and value function.
 
     """
-
+    # create logger for training
     logger = EpochLogger(**logger_kwargs)
     logger.save_config(locals())
+
+    # create logger for evaluation to keep track of evaluation values at each checkpoint (or save frequency)
+    # using eval_progress.txt. It is different from the logger_eval used inside one evaluation epoch.
+    logger_eval_progress = EpochLogger(output_fname='progress_eval.txt', **logger_kwargs)
+
+    # create logger for evaluation and save best performance, best structure, and best model in simple_save999999
+    logger_eval = EpochLogger(**dict(exp_name=logger_kwargs['exp_name'],
+                                     output_dir=os.path.join(logger.output_dir, "simple_save999999")))
 
     # create logger for tensorboard
     tb_logdir = "{}/tb_logs/".format(logger.output_dir)
@@ -282,9 +290,6 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
     best_eval_AverageEpRet = -0.05  # a negative value so that best model is saved at least once.
     best_eval_StdEpRet = 1.0e30
 
-    # save is used to only allow saving BEST models after half of training epochs
-    save = True
-
     # below are used for early-stop. We early stop if
     # 1) a best model has been saved, and,
     # 2) 50 epochs have passed without a new save
@@ -335,11 +340,10 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
         # Save model
         if (epoch % save_freq == 0) or (epoch == epochs - 1):
             # Save a new model every save_freq and at the last epoch. Do not overwrite the previous save.
-            # logger.save_state({'env_name': env_name}, epoch)
+            logger.save_state({'env_name': env_name}, epoch)
 
             # # Save a new model every save_freq and at the last epoch. Only keep one copy - the current model
             # logger.save_state({'env_name': env_name})
-
 
             # Evaluate and save best model
             if do_checkpoint_eval and epoch > 0:
@@ -353,13 +357,14 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
                 best_eval_AverageEpRet, best_eval_StdEpRet, saved = eval_and_save_best_model(
                     best_eval_AverageEpRet,
                     best_eval_StdEpRet,
-                    # a new logger is created and passed in so that the new logger can leverage the directory
+                    # a new best logger is created and passed in so that the new logger can leverage the directory
                     # structure without messing up the logger in the training loop
-                    eval_logger=EpochLogger(**dict(
-                        exp_name=logger_kwargs['exp_name'],
-                        output_dir=os.path.join(logger.output_dir, "simple_save999999"))),
-
+                    # eval_logger=EpochLogger(**dict(
+                    #     exp_name=logger_kwargs['exp_name'],
+                    #     output_dir=os.path.join(logger.output_dir, "simple_save999999"))),
+                    eval_logger=logger_eval,
                     train_logger=logger,
+                    eval_progress_logger=logger_eval_progress,
                     tb_logger=tb_logger,
                     epoch=epoch,
                     # the env_name is passed in so that to create an env when and where it is needed. This is to
@@ -375,8 +380,8 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
                     # number of samples to draw when simulate demand
                     n_sample=5000,
                     num_episodes=eval_episodes,
-                    save=save,
-                    seed=seed
+                    seed=seed,
+                    save_all_eval=save_all_eval
                 )
 
         # Perform PPO update!
@@ -428,21 +433,22 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
 
         logger.dump_tabular()
 
-        # check for early stop
-        if saved:
-            # start to count the episodes elapsed after a "saved" event
-            early_stop_count_started = True
+        if early_stop_epochs > 0:
+            # check for early stop
+            if saved:
+                # start to count the episodes elapsed after a "saved" event
+                early_stop_count_started = True
 
-            # reset the count to 0
-            episode_count_after_saved = 0
+                # reset the count to 0
+                episode_count_after_saved = 0
 
-        else:
-            # check whether we should count this episode, i.e., whether early_stop_count_started == True
-            if early_stop_count_started:
-                episode_count_after_saved += 1
-                if episode_count_after_saved > 60:
-                    logger.log('Early Stopped at epoch {}.'.format(epoch), color='cyan')
-                    break
+            else:
+                # check whether we should count this episode, i.e., whether early_stop_count_started == True
+                if early_stop_count_started:
+                    episode_count_after_saved += 1
+                    if episode_count_after_saved > early_stop_epochs:
+                        logger.log('Early Stopped at epoch {}.'.format(epoch), color='cyan')
+                        break
 
 
 def _get_current_temperature(epoch, epochs, train_starting_temp):

@@ -29,6 +29,8 @@ def run_experiment(args):
     eg.add('env_name', args.env_name)
     eg.add('env_subtract_full_flex', args.env_subtract_full_flex)
     eg.add('lam', args.lam)
+    eg.add('early_stop_epochs', args.early_stop_epochs)
+    eg.add('save_all_eval', args.save_all_eval)
     if args.episodes_per_epoch is not None:
         eg.add('episodes_per_epoch', args.episodes_per_epoch)
 
@@ -65,16 +67,22 @@ if __name__ == '__main__':
                         help="to directly specify seed instead of using --num_runs.")
     parser.add_argument('--steps_per_epoch', type=int, default=6000)
     parser.add_argument('--episodes_per_epoch', type=int, default=None)
+    parser.add_argument('--early_stop_epochs', type=int, default=60,
+                        help="The number of consecutive epochs with no eval performance improvement for early stop."
+                             "If negative, then do not early stop.")
+    parser.add_argument('--save_all_eval', action='store_true',
+                        help="Save performance and structure of each episode of evaluation of each checkpoints for "
+                             "plotting purpose")
+
 
     parser.add_argument('--save_freq', type=int, default=5000)
-
+    parser.add_argument('--do_checkpoint_eval', action='store_true', help="Whether to do evaluation per save frequency")
     parser.add_argument('--eval_episodes', type=int, default=50,
                         help="number of episodes to run during evaluation.")
 
     parser.add_argument('--custom_h', nargs='+', default=None,
                         help="to specify hidden layers with different sizes, e.g., 1024-128.")
     parser.add_argument('--act', type=str, default="tf.nn.relu")
-    parser.add_argument('--do_checkpoint_eval', action='store_true', help="Whether to do evaluation per save frequency")
     parser.add_argument('--train_pi_iters', type=int, default=80, help="# of iterations per each training step for pi")
     parser.add_argument('--train_v_iters', type=int, default=80, help="# of iterations per each training step for v")
     parser.add_argument("--eval_temp", type=float, default=1.0,
