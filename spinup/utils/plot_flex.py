@@ -14,7 +14,7 @@ exp_idx = 0
 units = dict()
 
 
-def plot_data(data, xaxis='Epoch', value="AverageEpRet", condition="Condition1", smooth=1, legend_name=None, **kwargs):
+def plot_data(data, xaxis=None, value=None, condition="Condition1", smooth=1, legend_name=None, eval=False, **kwargs):
     if smooth > 1:
         """
         smooth data with moving window average.
@@ -37,10 +37,27 @@ def plot_data(data, xaxis='Epoch', value="AverageEpRet", condition="Condition1",
         data.rename(columns={'Condition1': legend_name}, inplace=True)
         condition = legend_name
 
-    sns.set(style="darkgrid", font_scale=1.5)
-    # sns.tsplot(data=data, time=xaxis, value=value, unit="Unit", condition=condition, ci='sd', **kwargs)
+    if not eval:
+        # change TotalEnvInteracts to training steps
+        if xaxis is not None:
+            assert xaxis == 'training steps'
+            data.rename(columns={'TotalEnvInteracts': xaxis}, inplace=True)
+        # change AverageEpRet to average episode return
+        if value is not None:
+            assert value == 'average return'
+            data.rename(columns={'AverageEpRet': value}, inplace=True)
 
-    sns.lineplot(data=data, x=xaxis, y=value, hue=condition, ci='sd', **kwargs)
+        sns.set(style="darkgrid", font_scale=1.)
+        # sns.tsplot(data=data, time=xaxis, value=value, unit="Unit", condition=condition, ci='sd', **kwargs)
+
+        sns.lineplot(data=data, x=xaxis, y=value, hue=condition, ci='sd', **kwargs)
+    else:
+        xaxis = 'Epoch'
+        value = 'EpRet'
+        sns.lineplot(data=data, x=xaxis, y=value, hue=condition, ci='sd', **kwargs)
+
+
+
 
     """
     If you upgrade to any version of Seaborn greater than 0.8.1, switch from 
@@ -78,7 +95,7 @@ def get_Tarc(exp_name):
     elif 'tar' in exp_name:
         splits = exp_name.split('tar')
         target_arc = splits[-1]
-        return "tar{}".format(target_arc)
+        return "K = {}".format(target_arc)
     else:
         print("exp_name {} doesn't not contain 'T'".format(exp_name))
         return exp_name
@@ -86,7 +103,7 @@ def get_Tarc(exp_name):
 
 
 
-def get_datasets(logdir, condition=None):
+def get_datasets(logdir, eval=False, condition=None):
     """
     Recursively look through logdir for output files produced by
     spinup.logx.Logger. 
@@ -96,8 +113,11 @@ def get_datasets(logdir, condition=None):
     global exp_idx
     global units
     datasets = []
+
+    progress_file = 'progress_eval.txt' if eval else 'progress.txt'
+
     for root, _, files in os.walk(logdir):
-        if 'progress.txt' in files:
+        if progress_file in files:
             exp_name = None
             try:
                 config_path = open(os.path.join(root, 'config.json'))
@@ -115,11 +135,14 @@ def get_datasets(logdir, condition=None):
             units[condition1] += 1
 
             try:
-                exp_data = pd.read_table(os.path.join(root, 'progress.txt'))
+                exp_data = pd.read_table(os.path.join(root, progress_file))
             except:
-                print('Could not read from %s' % os.path.join(root, 'progress.txt'))
+                print('Could not read from %s' % os.path.join(root, progress_file))
                 continue
-            performance = 'AverageTestEpRet' if 'AverageTestEpRet' in exp_data else 'AverageEpRet'
+            if not eval:
+                performance = 'AverageTestEpRet' if 'AverageTestEpRet' in exp_data else 'AverageEpRet'
+            else:
+                performance = 'EpRet'
             exp_data.insert(len(exp_data.columns), 'Unit', unit)
             exp_data.insert(len(exp_data.columns), 'Condition1', condition1)
             exp_data.insert(len(exp_data.columns), 'Condition2', condition2)
@@ -151,7 +174,7 @@ def get_datasets_by_identifier(logdir_identifiers, data_dir=None):
     target_logdirs = []
 
     if data_dir is None:  # use default data dir
-        # /home/user/git/spinningup/spinup/utils/custom_plot.py
+        # /home/user/git/spinningup/spinup/utils/plot_flex.py
         basedir = os.getcwd()
         path = Path(basedir)
         # get parent_path /home/user/git/spinningup/
@@ -165,21 +188,10 @@ def get_datasets_by_identifier(logdir_identifiers, data_dir=None):
                 if match_all_idenfiers(dir, logdir_identifiers):
                     target_logdirs.append(osp.join(root, dir))
 
-    # # walk through data dir and look for log_dir that match with logdir_identifier
-    # for root, dir_list, file_list in os.walk(data_dir):
-    #     if dir_list is not None:
-    #         for dir in dir_list:
-    #             if match_all_idenfiers(dir, logdir_identifiers):
-    #                 for s_root, s_dir_list, s_file_list in os.walk(osp.join(root, dir)):
-    #                     if s_dir_list is not None:
-    #                         for s_dir in s_dir_list:
-    #                             if match_all_idenfiers(s_dir, logdir_identifiers):
-    #                                 target_logdirs.append(osp.join(root, s_root, s_dir))
-
     return target_logdirs
 
 
-def get_all_datasets(all_logdirs, legend=None, select=None, exclude=None):
+def get_all_datasets(all_logdirs, legend=None, select=None, exclude=None, eval=False):
     """
     For every entry in all_logdirs,
         1) check if the entry is a real directory and if it is, 
@@ -223,23 +235,23 @@ def get_all_datasets(all_logdirs, legend=None, select=None, exclude=None):
     data = []
     if legend:
         for log, leg in zip(logdirs, legend):
-            data += get_datasets(log, leg)
+            data += get_datasets(log, eval, leg)
     else:
         for log in logdirs:
-            data += get_datasets(log)
+            data += get_datasets(log, eval)
     return data
 
 
 def make_plots(all_logdirs, legend=None, xaxis=None, values=None, count=False,
-               font_scale=1.5, smooth=1, select=None, exclude=None, estimator='mean', legend_name=None):
-    data = get_all_datasets(all_logdirs, legend, select, exclude)
+               font_scale=1.5, smooth=1, select=None, exclude=None, estimator='mean', legend_name=None, eval=False):
+    data = get_all_datasets(all_logdirs, legend, select, exclude, eval)
     values = values if isinstance(values, list) else [values]
     condition = 'Condition2' if count else 'Condition1'
     estimator = getattr(np, estimator)  # choose what to show on main curve: mean? max? min?
     for value in values:
         plt.figure()
         plot_data(data, xaxis=xaxis, value=value, condition=condition, smooth=smooth, estimator=estimator,
-                  legend_name=legend_name)
+                  legend_name=legend_name, eval=eval)
     plt.show()
 
 
@@ -259,6 +271,7 @@ def main():
     parser.add_argument('--est', default='mean')
     parser.add_argument('--data_dir', type=str, default=None,
                         help='absolute dir to data directory. if not specified, the default data dir is used.')
+    parser.add_argument('--eval', action='store_true', help='plot progress_eval.txt')
     args = parser.parse_args()
     """
 
@@ -305,6 +318,9 @@ def main():
 
         exclude (strings): Optional exclusion rule: plotter will only show 
             curves from logdirs that do not contain these substrings.
+        
+        data_dir (string): absolute dir to data directory. if not specified, 
+            the default data dir is used.
 
     """
 
@@ -317,7 +333,7 @@ def main():
 
     make_plots(logdirs, args.legend, args.xaxis, args.value, args.count,
                smooth=args.smooth, select=args.select, exclude=args.exclude,
-               estimator=args.est, legend_name=args.legend_name)
+               estimator=args.est, legend_name=args.legend_name, eval=args.eval)
 
 
 if __name__ == "__main__":

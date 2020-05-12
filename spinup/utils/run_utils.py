@@ -196,7 +196,7 @@ def call_experiment(exp_name, thunk, seed=0, num_cpu=1, data_dir=None,
     # Tell the user about where results are, and how to check them
     logger_kwargs = kwargs['logger_kwargs']
 
-    plot_cmd = 'python -m spinup.run plot ' + logger_kwargs['output_dir']
+    plot_cmd = 'python -m spinup.run plot_flex ' + logger_kwargs['output_dir']
     plot_cmd = colorize(plot_cmd, 'green')
 
     if kwargs['env_version'] in (1, 2):
