@@ -339,11 +339,11 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
 
         # Save model
         if (epoch % save_freq == 0) or (epoch == epochs - 1):
-            # Save a new model every save_freq and at the last epoch. Do not overwrite the previous save.
-            logger.save_state({'env_name': env_name}, epoch)
+            # # Save a new model every save_freq and at the last epoch. Do not overwrite the previous save.
+            # logger.save_state({'env_name': env_name}, epoch)
 
-            # # Save a new model every save_freq and at the last epoch. Only keep one copy - the current model
-            # logger.save_state({'env_name': env_name})
+            # Save a new model every save_freq and at the last epoch. Only keep one copy - the current model
+            logger.save_state({'env_name': env_name})
 
             # Evaluate and save best model
             if do_checkpoint_eval and epoch > 0:
