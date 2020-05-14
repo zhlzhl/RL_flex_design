@@ -103,10 +103,6 @@ def generate_scripts_for_multiple_target_arcs(experiment, env_input, env_version
 
                 assert len(target_arcs) >= 1
                 if len(target_arcs) == 1:
-                    # # append an additional target arc to target_arcs to maintain the right directory name
-                    # new_t = target_arcs[0] + 3
-                    # target_arcs.append(new_t)
-
                     # add 'tar' to exp_name explicitely
                     exp_name = 'F{}_CH1024-128_ENV{}_tar{}'.format(experiment, env_version, target_arcs[0])
                 else:
@@ -265,10 +261,10 @@ def generate_scripts_for_one_target_arcs(experiment, env_input, env_version_list
 
 if __name__ == "__main__":
     # specify parameters
-    experiment = '10x10b'
+    experiment = '10x26'
     env_input = get_input(experiment)
     env_version_list = [5]
-    epoch_episodes = 800
+    epoch_episodes = 2000
     gamma = 0.99
     lam = 0.999
     variance_reduction = False  # for this version of the paper, we do not use variance reduction, i.e., VR=False
@@ -287,21 +283,20 @@ if __name__ == "__main__":
     else:
         custom_h = None  # use default 1024-512
 
-    # Generate scripts for a list of target_arcs. make sure the sub_groups of target_arcs in each script is at
-    # least two. this allows log directories to be created with tar_arc specified in the directory name
-    num_tars_per_script = 2
+    # Generate scripts for a list of target_arcs. The list is devided into sub-lists
+    # each contains num_tar_per_script target_arcs.
+    num_tars_per_script = 1
     # the number of entrypoints to be created with different seeds to do more parallelization
-    num_batches = 2
+    num_batches = 1
     # the number of runs with different seed for each target arc
     num_runs = 6
 
     # can also manually specify the target arcs list
-    cpu = 8
-    early_stop = -1
-    epoch = 200
+    cpu = 16
+    early_stop = 80
     save_freq = 20
     save_all_eval = True
-    included_tars = [10, 13, 16, 19, 22, 25, 28]
+    included_tars = [38, 41, 44, 47]
 
     generate_scripts_for_multiple_target_arcs(experiment, env_input, env_version_list, epoch_episodes,
                                               num_tars_per_script, num_batches, num_runs, gamma, lam,
@@ -309,7 +304,6 @@ if __name__ == "__main__":
                                               custom_h=custom_h,
                                               cpu=cpu,
                                               early_stop=early_stop,
-                                              epoch=epoch,
                                               save_freq=save_freq,
                                               save_all_eval=save_all_eval,
                                               included_tars=included_tars)
