@@ -40,12 +40,12 @@ def plot_data(data, xaxis=None, value=None, condition="Condition1", smooth=1, le
     if not eval:
         # change TotalEnvInteracts to training steps
         if xaxis is not None:
-            assert xaxis == 'training steps'
-            data.rename(columns={'TotalEnvInteracts': xaxis}, inplace=True)
+            if xaxis == 'training steps':
+                data.rename(columns={'TotalEnvInteracts': xaxis}, inplace=True)
         # change AverageEpRet to average episode return
         if value is not None:
-            assert value == 'average return'
-            data.rename(columns={'AverageEpRet': value}, inplace=True)
+            if value == 'average return':
+                data.rename(columns={'AverageEpRet': value}, inplace=True)
 
         sns.set(style="darkgrid", font_scale=1.)
         # sns.tsplot(data=data, time=xaxis, value=value, unit="Unit", condition=condition, ci='sd', **kwargs)
