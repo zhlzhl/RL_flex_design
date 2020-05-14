@@ -56,9 +56,6 @@ def plot_data(data, xaxis=None, value=None, condition="Condition1", smooth=1, le
         value = 'EpRet'
         sns.lineplot(data=data, x=xaxis, y=value, hue=condition, ci='sd', **kwargs)
 
-
-
-
     """
     If you upgrade to any version of Seaborn greater than 0.8.1, switch from 
     tsplot to lineplot replacing L29 with:
@@ -100,6 +97,9 @@ def get_Tarc(exp_name):
         print("exp_name {} doesn't not contain 'T'".format(exp_name))
         return exp_name
 
+
+def extract_seed(root):
+    return int(root.split('_s')[-1])
 
 
 
@@ -147,6 +147,11 @@ def get_datasets(logdir, eval=False, condition=None):
             exp_data.insert(len(exp_data.columns), 'Condition1', condition1)
             exp_data.insert(len(exp_data.columns), 'Condition2', condition2)
             exp_data.insert(len(exp_data.columns), 'Performance', exp_data[performance])
+
+            if not eval:
+            # extract seed from root and add it to data frame of progress.txt
+                seed = extract_seed(root)
+                exp_data.insert(len(exp_data.columns), 'Seed', seed)
 
             # convert Time from seconds to hours
             if 'Time' in exp_data.columns:
@@ -242,99 +247,108 @@ def get_all_datasets(all_logdirs, legend=None, select=None, exclude=None, eval=F
     return data
 
 
-def make_plots(all_logdirs, legend=None, xaxis=None, values=None, count=False,
-               font_scale=1.5, smooth=1, select=None, exclude=None, estimator='mean', legend_name=None, eval=False):
-    data = get_all_datasets(all_logdirs, legend, select, exclude, eval)
-    values = values if isinstance(values, list) else [values]
-    condition = 'Condition2' if count else 'Condition1'
-    estimator = getattr(np, estimator)  # choose what to show on main curve: mean? max? min?
-    for value in values:
-        plt.figure()
-        plot_data(data, xaxis=xaxis, value=value, condition=condition, smooth=smooth, estimator=estimator,
-                  legend_name=legend_name, eval=eval)
-    plt.show()
-
-
-def main():
-    import argparse
-    parser = argparse.ArgumentParser()
-    # parser.add_argument('logdir', nargs='*')
-    parser.add_argument('logdir_identifiers', nargs='*')
-    parser.add_argument('--legend', '-l', nargs='*', type=str)
-    parser.add_argument('--legend_name', '-ln', type=str, default=None)
-    parser.add_argument('--xaxis', '-x', default='TotalEnvInteracts')
-    parser.add_argument('--value', '-y', default='Performance', nargs='*')
-    parser.add_argument('--count', action='store_true')
-    parser.add_argument('--smooth', '-s', type=int, default=1)
-    parser.add_argument('--select', nargs='*')
-    parser.add_argument('--exclude', nargs='*')
-    parser.add_argument('--est', default='mean')
-    parser.add_argument('--data_dir', type=str, default=None,
-                        help='absolute dir to data directory. if not specified, the default data dir is used.')
-    parser.add_argument('--eval', action='store_true', help='plot progress_eval.txt')
-    args = parser.parse_args()
-    """
-
-    Args: 
-        logdir_identifiers (list of strings): As many identifiers for experiments names to obtain the directories under 
-        data directory you'd like to plot from.
-
-        legend (strings): Optional way to specify legend for the plot. The 
-            plotter legend will automatically use the ``exp_name`` from the
-            config.json file, unless you tell it otherwise through this flag.
-            This only works if you provide a name for each directory that
-            will get plotted. (Note: this may not be the same as the number
-            of logdir args you provide! Recall that the plotter looks for
-            autocompletes of the logdir args: there may be more than one 
-            match for a given logdir prefix, and you will need to provide a 
-            legend string for each one of those matches---unless you have 
-            removed some of them as candidates via selection or exclusion 
-            rules (below).)
-
-        xaxis (string): Pick what column from data is used for the x-axis.
-             Defaults to ``TotalEnvInteracts``.
-
-        value (strings): Pick what columns from data to graph on the y-axis. 
-            Submitting multiple values will produce multiple graphs. Defaults
-            to ``Performance``, which is not an actual output of any algorithm.
-            Instead, ``Performance`` refers to either ``AverageEpRet``, the 
-            correct performance measure for the on-policy algorithms, or
-            ``AverageTestEpRet``, the correct performance measure for the 
-            off-policy algorithms. The plotter will automatically figure out 
-            which of ``AverageEpRet`` or ``AverageTestEpRet`` to report for 
-            each separate logdir.
-
-        count: Optional flag. By default, the plotter shows y-values which
-            are averaged across all results that share an ``exp_name``, 
-            which is typically a set of identical experiments that only vary
-            in random seed. But if you'd like to see all of those curves 
-            separately, use the ``--count`` flag.
-
-        smooth (int): Smooth data by averaging it over a fixed window. This 
-            parameter says how wide the averaging window will be.
-
-        select (strings): Optional selection rule: the plotter will only show
-            curves from logdirs that contain all of these substrings.
-
-        exclude (strings): Optional exclusion rule: plotter will only show 
-            curves from logdirs that do not contain these substrings.
-        
-        data_dir (string): absolute dir to data directory. if not specified, 
-            the default data dir is used.
-
-    """
-
-    logdirs = get_datasets_by_identifier(args.logdir_identifiers, data_dir=args.data_dir)
-
-    # sort the dirs by 1) getting the last directory from the path using split('/')[-1], and 2) removing the dates in
-    # the dir name only getting characters after indexed by 20 and above
-    logdirs = sorted(logdirs, key= lambda x : x.split('/')[-1][20:])
-    print(logdirs)
-
-    make_plots(logdirs, args.legend, args.xaxis, args.value, args.count,
-               smooth=args.smooth, select=args.select, exclude=args.exclude,
-               estimator=args.est, legend_name=args.legend_name, eval=args.eval)
+# def make_plots(all_logdirs, legend=None, xaxis=None, values=None, count=False,
+#                font_scale=1.5, smooth=1, select=None, exclude=None, estimator='mean', legend_name=None, eval=False):
+#     data = get_all_datasets(all_logdirs, legend, select, exclude, eval)
+#     values = values if isinstance(values, list) else [values]
+#     condition = 'Condition2' if count else 'Condition1'
+#     estimator = getattr(np, estimator)  # choose what to show on main curve: mean? max? min?
+#     for value in values:
+#         plt.figure()
+#         plot_data(data, xaxis=xaxis, value=value, condition=condition, smooth=smooth, estimator=estimator,
+#                   legend_name=legend_name, eval=eval)
+#     plt.show()
 
 
 if __name__ == "__main__":
-    main()
+    logdir_identifiers = ['10x10a']
+    xaxis = 'TotalEnvInteracts'
+    values = ['Performance']
+    count = False  # if True, then do not aggregate seeds
+    smooth = 1  # window size for running average
+    select = None
+    exclude = None
+    estimator = 'mean'  # estimator for sns.lineplot
+    data_dir = None  # explicite specify data directory
+    legend = None  # a list of legends with size equal to number of experiments
+    legend_name = 'K'
+
+    logdirs = get_datasets_by_identifier(logdir_identifiers, data_dir)
+
+    # sort the dirs by 1) getting the last directory from the path using split('/')[-1], and 2) removing the dates in
+    # the dir name only getting characters after indexed by 20 and above
+    all_logdirs = sorted(logdirs, key=lambda x: x.split('/')[-1][20:])
+    print(logdirs)
+
+    data = get_all_datasets(all_logdirs, legend, select, exclude, eval=False)
+    if isinstance(data, list):
+        data = pd.concat(data, ignore_index=True, sort=True)
+    data_eval = get_all_datasets(all_logdirs, legend, select, exclude, eval=True)
+    if isinstance(data_eval, list):
+        data_eval = pd.concat(data_eval, ignore_index=True, sort=True)
+
+    condition = 'Condition2' if count else 'Condition1'
+    estimator = getattr(np, estimator)  # choose what to show on main curve: mean? max? min?
+    # change 'Condition1' to legend_name
+    if legend_name is not None:
+        data.rename(columns={'Condition1': legend_name}, inplace=True)
+        data_eval.rename(columns={'Condition1': legend_name}, inplace=True)
+        condition = legend_name
+    values = values if isinstance(values, list) else [values]
+
+
+    for value in values:
+        ##### plot training curve
+        plt.figure()
+
+        sns.set(style="darkgrid", font_scale=1.)
+        sns.lineplot(data=data, x=xaxis, y=value, hue=condition, ci='sd', estimator=estimator)
+        plt.xlabel('training steps')
+        plt.ylabel('average return')
+        plt.legend(loc='best').set_draggable(True)
+        # set x-axis to scale in scientific notation
+        plt.ticklabel_format(style='sci', axis='x', scilimits=(0, 0))
+        plt.tight_layout(pad=0.5)
+
+        ##### plot eval curve
+        time = data[['Time (hours)', 'K', 'Seed', 'Epoch', 'TotalEnvInteracts']]
+        data_eval = pd.merge(data_eval, time, how='left', on=['K', 'Seed', 'Epoch'])
+        # drop un-used columns
+        data_eval.drop(columns=['Condition2', 'EpLen', 'Performance', 'Unit', 'Episode'], inplace=True)
+        plt.figure()
+        sns.lineplot(data=data_eval, x=xaxis, y='EpRet', hue=condition, ci='sd', estimator=estimator)
+        plt.xlabel('training steps')
+        plt.ylabel('average return')
+        plt.legend(loc='best').set_draggable(True)
+        # set x-axis to scale in scientific notation
+        plt.ticklabel_format(style='sci', axis='x', scilimits=(0, 0))
+        plt.tight_layout(pad=0.5)
+
+
+        ##### plot eval with AverageEpRet curve
+        data_eval_AverageEpRet = data_eval.groupby(['K', 'Seed','Epoch'], as_index=False).mean()
+        plt.figure()
+        sns.lineplot(data=data_eval_AverageEpRet, x=xaxis, y='EpRet', hue=condition, ci='sd', estimator=estimator)
+        plt.xlabel('training steps')
+        plt.ylabel('average return')
+        plt.legend(loc='best').set_draggable(True)
+        # set x-axis to scale in scientific notation
+        plt.ticklabel_format(style='sci', axis='x', scilimits=(0, 0))
+        plt.tight_layout(pad=0.5)
+
+        ##### plot eval with MaxEpRet curve
+        # data_eval_MaxEpRet = data_eval.groupby(['K', 'Seed','Epoch'], as_index=False).max()
+        data_eval_MaxEpRet = data_eval.groupby(['K', 'Seed', 'Epoch'],
+                                               as_index=False).agg({'EpRet': lambda grp: grp.nlargest(3).mean(),
+                                                                    'Time (hours)': np.mean,
+                                                                    'TotalEnvInteracts': np.mean})
+        plt.figure()
+        sns.lineplot(data=data_eval_MaxEpRet, x=xaxis, y='EpRet', hue=condition, ci='sd', estimator=estimator)
+        plt.xlabel('training steps')
+        plt.ylabel('average return')
+        plt.legend(loc='best').set_draggable(True)
+        # set x-axis to scale in scientific notation
+        plt.ticklabel_format(style='sci', axis='x', scilimits=(0, 0))
+        plt.tight_layout(pad=0.5)
+
+    plt.show()
