@@ -269,7 +269,7 @@ if __name__ == "__main__":
     select = None
     exclude = None
     estimator = 'mean'  # estimator for sns.lineplot
-    data_dir = None  # explicite specify data directory
+    data_dir = "/home/user/git/RL_flex_design/data_backup/plotting"  # explicite specify data directory
     legend = None  # a list of legends with size equal to number of experiments
     legend_name = 'K'
 
@@ -336,19 +336,19 @@ if __name__ == "__main__":
         plt.ticklabel_format(style='sci', axis='x', scilimits=(0, 0))
         plt.tight_layout(pad=0.5)
 
-        ##### plot eval with MaxEpRet curve
-        # data_eval_MaxEpRet = data_eval.groupby(['K', 'Seed','Epoch'], as_index=False).max()
-        data_eval_MaxEpRet = data_eval.groupby(['K', 'Seed', 'Epoch'],
-                                               as_index=False).agg({'EpRet': lambda grp: grp.nlargest(3).mean(),
-                                                                    'Time (hours)': np.mean,
-                                                                    'TotalEnvInteracts': np.mean})
-        plt.figure()
-        sns.lineplot(data=data_eval_MaxEpRet, x=xaxis, y='EpRet', hue=condition, ci='sd', estimator=estimator)
-        plt.xlabel('training steps')
-        plt.ylabel('average return')
-        plt.legend(loc='best').set_draggable(True)
-        # set x-axis to scale in scientific notation
-        plt.ticklabel_format(style='sci', axis='x', scilimits=(0, 0))
-        plt.tight_layout(pad=0.5)
+        # ##### plot eval with MaxEpRet curve
+        # # data_eval_MaxEpRet = data_eval.groupby(['K', 'Seed','Epoch'], as_index=False).max()
+        # data_eval_MaxEpRet = data_eval.groupby(['K', 'Seed', 'Epoch'],
+        #                                        as_index=False).agg({'EpRet': lambda grp: grp.nlargest(3).mean(),
+        #                                                             'Time (hours)': np.mean,
+        #                                                             'TotalEnvInteracts': np.mean})
+        # plt.figure()
+        # sns.lineplot(data=data_eval_MaxEpRet, x=xaxis, y='EpRet', hue=condition, ci='sd', estimator=estimator)
+        # plt.xlabel('training steps')
+        # plt.ylabel('average return')
+        # plt.legend(loc='best').set_draggable(True)
+        # # set x-axis to scale in scientific notation
+        # plt.ticklabel_format(style='sci', axis='x', scilimits=(0, 0))
+        # plt.tight_layout(pad=0.5)
 
     plt.show()
