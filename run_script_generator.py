@@ -171,7 +171,7 @@ def generate_scripts_for_multiple_target_arcs(experiment, env_input, env_version
 def generate_scripts_for_one_target_arcs(experiment, env_input, env_version_list, epoch_episodes, target_arcs,
                                          num_runs, starting_seed, gamma=None, lam=None,
                                          variance_reduction=False, env_n_sample=50,
-                                         early_stop=None, epoch=800, save_freq=None, save_all_eval=None,
+                                         early_stop=None, cpu=2, epoch=800, save_freq=10, save_all_eval=None,
                                          custom_h=None):
     m, n, mean_c, mean_d, sd_d, profit_mat, _, fixed_costs, flex_0 = load_FlexibilityEnv_input(
         _get_full_path(env_input))
@@ -200,14 +200,14 @@ def generate_scripts_for_one_target_arcs(experiment, env_input, env_version_list
                             --algo ppo  \\\n \
                             --env_name F{}-v{}  \\\n \
                             --exp_name F{}_CH1024-128_ENV{}_tar{}  \\\n \
-                            --cpu 2 \\\n \
+                            --cpu {} \\\n \
                             --epochs {}  \\\n \
                             --custom_h 1024-128  \\\n \
                             --env_version {}  \\\n \
                             --env_input {}  \\\n \
                             --target_arcs  {}  \\\n \
                             --seed {}  \\\n \
-                            --save_freq 10   \\\n \
+                            --save_freq {}   \\\n \
                             --steps_per_epoch {}  \\\n \
                             --do_checkpoint_eval \\\n".format(
                 experiment,
@@ -215,11 +215,13 @@ def generate_scripts_for_one_target_arcs(experiment, env_input, env_version_list
                 experiment,
                 env_version,
                 target_arcs,
+                cpu,
                 epoch,
                 env_version,
                 env_input,
                 target_arcs,
                 starting_seed + 10 * idx,
+                save_freq,
                 int(np.ceil((target_arcs - flex_0.sum()) * epoch_episodes))
             )
 
@@ -231,9 +233,6 @@ def generate_scripts_for_one_target_arcs(experiment, env_input, env_version_list
 
             if early_stop is not None:
                 python_string += '                             --early_stop {}  \\\n'.format(early_stop)
-
-            if save_freq is not None:
-                python_string += '                             --save_freq {}  \\\n'.format(save_freq)
 
             if save_all_eval is not None:
                 python_string += '                             --save_all_eval  \\\n'
@@ -261,10 +260,10 @@ def generate_scripts_for_one_target_arcs(experiment, env_input, env_version_list
 
 if __name__ == "__main__":
     # specify parameters
-    experiment = '10x26'
+    experiment = '10x10a'
     env_input = get_input(experiment)
-    env_version_list = [5]
-    epoch_episodes = 2000
+    env_version_list = [4, 5]
+    epoch_episodes = 800
     gamma = 0.99
     lam = 0.999
     variance_reduction = False  # for this version of the paper, we do not use variance reduction, i.e., VR=False
@@ -283,42 +282,47 @@ if __name__ == "__main__":
     else:
         custom_h = None  # use default 1024-512
 
-    # Generate scripts for a list of target_arcs. The list is devided into sub-lists
-    # each contains num_tar_per_script target_arcs.
-    num_tars_per_script = 1
-    # the number of entrypoints to be created with different seeds to do more parallelization
-    num_batches = 1
-    # the number of runs with different seed for each target arc
-    num_runs = 6
-
-    # can also manually specify the target arcs list
-    cpu = 16
-    early_stop = 80
-    save_freq = 20
-    save_all_eval = True
-    included_tars = [38, 41, 44, 47]
-
-    generate_scripts_for_multiple_target_arcs(experiment, env_input, env_version_list, epoch_episodes,
-                                              num_tars_per_script, num_batches, num_runs, gamma, lam,
-                                              variance_reduction, env_n_sample,
-                                              custom_h=custom_h,
-                                              cpu=cpu,
-                                              early_stop=early_stop,
-                                              save_freq=save_freq,
-                                              save_all_eval=save_all_eval,
-                                              included_tars=included_tars)
-
-    # # Generate scripts for one particular target_arcs but with different seeds, which will then be called in parallel
-    # target_arcs_list = [28]
+    # ##### Generate scripts for a list of target_arcs. The list is devided into sub-lists
+    # # each contains num_tar_per_script target_arcs.
+    # num_tars_per_script = 1
+    # # the number of entrypoints to be created with different seeds to do more parallelization
+    # num_batches = 1
+    # # the number of runs with different seed for each target arc
+    # num_runs = 6
     #
-    # for target_arcs in target_arcs_list:
-    #     num_runs = 12
-    #     starting_seed = 0
-    #     generate_scripts_for_one_target_arcs(experiment, env_input, env_version_list, epoch_episodes,
-    #                                          target_arcs, num_runs, starting_seed, gamma, lam,
-    #                                          variance_reduction, env_n_sample, custom_h=custom_h)
+    # # can also manually specify the target arcs list
+    # cpu = 16
+    # early_stop = 60
+    # save_freq = 10
+    # save_all_eval = True
+    # included_tars = None
+    #
+    # generate_scripts_for_multiple_target_arcs(experiment, env_input, env_version_list, epoch_episodes,
+    #                                           num_tars_per_script, num_batches, num_runs, gamma, lam,
+    #                                           variance_reduction, env_n_sample,
+    #                                           custom_h=custom_h,
+    #                                           cpu=cpu,
+    #                                           early_stop=early_stop,
+    #                                           save_freq=save_freq,
+    #                                           save_all_eval=save_all_eval,
+    #                                           included_tars=included_tars)
 
-    # ### scripts for plotting eval_progress.txt
+    ###### Generate scripts for one particular target_arcs but with different seeds, which will then be called in parallel
+    target_arcs_list = [13, 22]
+    cpu = 16
+    epoch = 50
+    num_runs = 1
+
+    for target_arcs in target_arcs_list:
+        starting_seed = 0
+        generate_scripts_for_one_target_arcs(experiment, env_input, env_version_list, epoch_episodes,
+                                             target_arcs, num_runs, starting_seed, gamma, lam,
+                                             variance_reduction, env_n_sample,
+                                             cpu=cpu,
+                                             epoch=epoch,
+                                             custom_h=custom_h)
+
+    # ##### scripts for plotting eval_progress.txt
     # early_stop = -1
     # epoch = 200
     # target_arcs_list = [13, 22]
