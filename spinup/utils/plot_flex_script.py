@@ -269,7 +269,7 @@ if __name__ == "__main__":
     select = None
     exclude = None
     estimator = 'mean'  # estimator for sns.lineplot
-    data_dir = "/home/user/git/RL_flex_design/data_backup/plotting"  # explicite specify data directory
+    data_dir = "/home/user/git/RL_flex_design/data_backup/plotting_training_curves"  # explicite specify data directory
     legend = None  # a list of legends with size equal to number of experiments
     legend_name = 'K'
 

@@ -313,9 +313,9 @@ class FlexibilityEnv(gym.Env):
         # action is the index of the link to be changed. If the link already exists, then the action is to remove it,
         # otherwise, the action is to add it.
         # perform adding/removing the arc identified by the action
+        row_index = int(action / self.n_product)
+        col_index = int(action % self.n_product)
         if self.env_version in (1, 2, 3):
-            row_index = int(action / self.n_product)
-            col_index = int(action % self.n_product)
             self.adjacency_matrix[row_index, col_index] = (self.adjacency_matrix[row_index, col_index] + 1) % 2
         elif self.env_version == 4 or self.env_version > 40:  # env_version == 4 or >40
             if action >= self.n_product * self.n_plant:
@@ -323,13 +323,13 @@ class FlexibilityEnv(gym.Env):
                 self.action_is_dummy = True
             else:
                 self.action_is_dummy = False
-                row_index = int(action / self.n_product)
-                col_index = int(action % self.n_product)
+                # row_index = int(action / self.n_product)
+                # col_index = int(action % self.n_product)
                 self.adjacency_matrix[row_index, col_index] = (self.adjacency_matrix[row_index, col_index] + 1) % 2
         elif self.env_version == 5:
             # Only add arcs. If an arc already exists, do nothing --> dummy action
-            row_index = int(action / self.n_product)
-            col_index = int(action % self.n_product)
+            # row_index = int(action / self.n_product)
+            # col_index = int(action % self.n_product)
             if self.adjacency_matrix[row_index, col_index] == 1:
                 self.action_is_dummy = True
             else:
