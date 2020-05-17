@@ -164,7 +164,7 @@ def call_experiment(exp_name, thunk, seed=0, num_cpu=1, data_dir=None,
                                                      subtract_full_flexibility_performance=kwargs['env_subtract_full_flex'],
                                                      meta_leraning=kwargs['meta_learning'])
 
-                del kwargs['env_n_sample'], kwargs['env_subtract_full_flex'], kwargs['meta_learning']
+                del kwargs['env_n_sample'], kwargs['env_subtract_full_flex']
 
         # Fork into multiple processes
         mpi_fork(num_cpu)
@@ -213,6 +213,12 @@ def call_experiment(exp_name, thunk, seed=0, num_cpu=1, data_dir=None,
                    ' --env_version {}'.format(kwargs['env_version']) + \
                    ' --env_input {}'.format(kwargs['env_input']) + \
                    ' --target_arcs {}' .format(kwargs['target_arcs'])
+
+        if kwargs['meta_learning']:
+            test_cmd += ' --meta_learning'
+
+        if kwargs['finetune']:
+            test_cmd += ' --finetune'
 
     test_cmd = colorize(test_cmd, 'green')
 

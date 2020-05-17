@@ -9,6 +9,7 @@ from datetime import datetime
 from spinup.utils.mpi_tf import MpiAdamOptimizer, sync_all_params
 from spinup.utils.mpi_tools import mpi_fork, mpi_avg, proc_id, mpi_statistics_scalar, num_procs
 from spinup.utils.custom_utils import *
+from spinup.utils.logx import restore_tf_graph
 import copy
 
 
@@ -103,7 +104,8 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
         vf_lr=1e-3, train_pi_iters=80, train_v_iters=80, lam=0.97, max_ep_len=1000,
         target_kl=0.01, logger_kwargs=dict(), save_freq=10, custom_h=None, eval_episodes=50,
         do_checkpoint_eval=False, env_name=None, eval_temp=1.0, train_starting_temp=1.0,
-        env_version=None, env_input=None, target_arcs=None, early_stop_epochs=None, save_all_eval=False):
+        env_version=None, env_input=None, target_arcs=None, early_stop_epochs=None,
+        save_all_eval=False, meta_learning=False, finetune=False, finetune_model_path=None):
     """
 
     Args:
@@ -176,7 +178,7 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
 
     """
     # create logger for training
-    logger = EpochLogger(**logger_kwargs)
+    logger = EpochLogger(meta_learning_or_finetune=(finetune or meta_learning), **logger_kwargs)
     logger.save_config(locals())
 
     # create logger for evaluation to keep track of evaluation values at each checkpoint (or save frequency)
@@ -207,14 +209,59 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
         hidden_layers_int_list = [int(h) for h in hidden_layers_str_list]
         ac_kwargs['hidden_sizes'] = hidden_layers_int_list
 
-    # Inputs to computation graph
-    x_ph, a_ph = core.placeholders_from_spaces(env.observation_space, env.action_space)
-    adv_ph, ret_ph, logp_old_ph = core.placeholders(None, None, None)
+    # create a tf session with GPU memory usage option to be allow_growth so that one program will not use up the
+    # whole GPU memory
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+    sess = tf.Session(config=config)
+    # log tf graph
+    tf.summary.FileWriter(tb_logdir, sess.graph)
 
-    temperature_ph = tf.placeholder(tf.float32, shape=(), name="init")
+    if not finetune:
+        # Inputs to computation graph
+        x_ph, a_ph = core.placeholders_from_spaces(env.observation_space, env.action_space)
+        adv_ph, ret_ph, logp_old_ph = core.placeholders(None, None, None)
 
-    # Main outputs from computation graph
-    pi, logp, logp_pi, v = actor_critic(x_ph, a_ph, temperature_ph, **ac_kwargs)
+        temperature_ph = tf.placeholder(tf.float32, shape=(), name="init")
+
+        # Main outputs from computation graph
+        pi, logp, logp_pi, v = actor_critic(x_ph, a_ph, temperature_ph, **ac_kwargs)
+
+        # PPO objectives
+        ratio = tf.exp(logp - logp_old_ph)  # pi(a|s) / pi_old(a|s)
+        min_adv = tf.where(adv_ph > 0, (1 + clip_ratio) * adv_ph, (1 - clip_ratio) * adv_ph)
+        pi_loss = -tf.reduce_mean(tf.minimum(ratio * adv_ph, min_adv))
+        v_loss = tf.reduce_mean((ret_ph - v) ** 2)
+
+        # Info (useful to watch during learning)
+        approx_kl = tf.reduce_mean(logp_old_ph - logp)  # a sample estimate for KL-divergence, easy to compute
+        approx_ent = tf.reduce_mean(-logp)  # a sample estimate for entropy, also easy to compute
+        clipped = tf.logical_or(ratio > (1 + clip_ratio), ratio < (1 - clip_ratio))
+        clipfrac = tf.reduce_mean(tf.cast(clipped, tf.float32))
+
+        # Optimizers
+        train_pi = tf.compat.v1.train.AdamOptimizer(learning_rate=pi_lr).minimize(pi_loss, name='train_pi')
+        train_v = tf.compat.v1.train.AdamOptimizer(learning_rate=vf_lr).minimize(v_loss, name='train_v')
+
+        sess.run(tf.global_variables_initializer())
+
+    else:  # do finetuning -- load model from meta_model_path
+        assert finetune_model_path is not None, "Please specify the path to the meta learnt model using --meta_model_path"
+        model = restore_tf_graph(sess, fpath=finetune_model_path + '/simple_save999999',
+                                 meta_learning_or_finetune=finetune)
+
+        # get placeholders
+        x_ph, a_ph, adv_ph = model['x'], model['a'], model['adv']
+        ret_ph, logp_old_ph, temperature_ph = model['ret'], model['logp_old'], model['temperature']
+
+        # get model output
+        pi, logp, logp_pi, v = model['pi'], model['logp'], model['logp_pi'], model['v']
+        pi_loss, v_loss = model['pi_loss'], model['v_loss']
+        approx_kl, approx_ent, clipfrac = model['approx_kl'], model['approx_ent'], model['clipfrac']
+
+        # get Optimizers
+        train_pi = model['train_pi']
+        train_v = model['train_v']
 
     # Need all placeholders in *this* order later (to zip with data from buffer)
     all_phs = [x_ph, a_ph, adv_ph, ret_ph, logp_old_ph, temperature_ph]
@@ -230,36 +277,30 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
     var_counts = tuple(core.count_vars(scope) for scope in ['pi', 'v'])
     logger.log('\nNumber of parameters: \t pi: %d, \t v: %d\n' % var_counts)
 
-    # PPO objectives
-    ratio = tf.exp(logp - logp_old_ph)  # pi(a|s) / pi_old(a|s)
-    min_adv = tf.where(adv_ph > 0, (1 + clip_ratio) * adv_ph, (1 - clip_ratio) * adv_ph)
-    pi_loss = -tf.reduce_mean(tf.minimum(ratio * adv_ph, min_adv))
-    v_loss = tf.reduce_mean((ret_ph - v) ** 2)
-
-    # Info (useful to watch during learning)
-    approx_kl = tf.reduce_mean(logp_old_ph - logp)  # a sample estimate for KL-divergence, easy to compute
-    approx_ent = tf.reduce_mean(-logp)  # a sample estimate for entropy, also easy to compute
-    clipped = tf.logical_or(ratio > (1 + clip_ratio), ratio < (1 - clip_ratio))
-    clipfrac = tf.reduce_mean(tf.cast(clipped, tf.float32))
-
-    # Optimizers
-    train_pi = MpiAdamOptimizer(learning_rate=pi_lr).minimize(pi_loss)
-    train_v = MpiAdamOptimizer(learning_rate=vf_lr).minimize(v_loss)
-
-    # create a tf session with GPU memory usage option to be allow_growth so that one program will not use up the
-    # whole GPU memory
-    config = tf.ConfigProto()
-    config.gpu_options.allow_growth = True
-    sess = tf.Session(config=config)
-    sess.run(tf.global_variables_initializer())
-    # log tf graph
-    tf.summary.FileWriter(tb_logdir, sess.graph)
+    # # log tf graph
+    # tf.summary.FileWriter(tb_logdir, sess.graph)
 
     # Sync params across processes
     sess.run(sync_all_params())
 
     # Setup model saving
-    logger.setup_tf_saver(sess, inputs={'x': x_ph, 'temperature': temperature_ph}, outputs={'pi': pi, 'v': v})
+    logger.setup_tf_saver(sess,
+                          inputs={'x': x_ph,
+                                  'a': a_ph,
+                                  'adv': adv_ph,
+                                  'ret': ret_ph,
+                                  'logp_old': logp_old_ph,
+                                  'temperature': temperature_ph},
+                          outputs={'pi': pi,
+                                   'v': v,
+                                   'logp': logp,
+                                   'logp_pi': logp_pi,
+                                   'pi_loss': pi_loss,
+                                   'v_loss': v_loss,
+                                   'approx_kl': approx_kl,
+                                   'approx_ent': approx_ent,
+                                   'clipfrac': clipfrac
+                                   })
 
     def update():
         inputs = {k: v for k, v in zip(all_phs, buf.get())}
