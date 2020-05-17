@@ -7,7 +7,7 @@ python -m spinup.run_flexibility  \
                              --cpu 8 \
                              --epochs 800  \
                              --custom_h 1024-128  \
-                             --env_version 6  \
+                             --env_version 5  \
                              --env_input input_ran10x10a_cv0.8.pkl  \
                              --target_arcs  13  \
                              --seed 0  \

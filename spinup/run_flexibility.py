@@ -28,6 +28,7 @@ def run_experiment(args):
     eg.add('env_version', args.env_version)
     eg.add('env_name', args.env_name)
     eg.add('env_subtract_full_flex', args.env_subtract_full_flex)
+    eg.add('meta_learning', args.meta_learning)
     eg.add('lam', args.lam)
     eg.add('early_stop_epochs', args.early_stop_epochs)
     eg.add('save_all_eval', args.save_all_eval)
@@ -108,6 +109,8 @@ if __name__ == '__main__':
     parser.add_argument("--env_subtract_full_flex", action='store_true',
                         help="Whether to substract full flexibility performance from structure performance in reward "
                              "to reduce variance")
+    parser.add_argument("--meta_learning", action='store_true',
+                        help="Whether to do meta learning")
 
     parser.add_argument('--target_arcs', type=int, nargs='+', default=None,
                         help="to specify target arcs with different values, e.g., 27 29 31 33."

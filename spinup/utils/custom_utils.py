@@ -152,7 +152,7 @@ def _parse_attributes(env_name):
 
 
 def get_custom_env_fn(env_name, env_version=None, target_arcs=None, env_input=None, env_n_sample=None,
-                      subtract_full_flexibility_performance=False):
+                      subtract_full_flexibility_performance=False, meta_leraning=False):
     if env_version in (1, 2):
         # parse FlexibilityEnv settings from env_name
         n_plant, n_product, target_arcs, n_sample = _parse_attributes(env_name)
@@ -195,11 +195,12 @@ def get_custom_env_fn(env_name, env_version=None, target_arcs=None, env_input=No
                                  profit_matrix=profit_mat,
                                  fixed_costs=fixed_costs,
                                  starting_structure=flex_0,
-                                 subtract_full_flexibility_performance=subtract_full_flexibility_performance)
+                                 subtract_full_flexibility_performance=subtract_full_flexibility_performance,
+                                 meta_learning=meta_leraning)
                 print('using env: {} | n_plant: {} | n_product: {} | target_arcs: {} | n_sample: {} | env_version: {} '
-                      '| subtract_full_flex: {}'
+                      '| subtract_full_flex: {} | meta_leraning: {}'
                       .format(env_name, n_plant, n_product, target_arcs, env_n_sample, env_version,
-                              subtract_full_flexibility_performance))
+                              subtract_full_flexibility_performance, meta_leraning))
 
     return CustomFlexibilityEnv
 

@@ -406,8 +406,9 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
             log_key_to_tb(tb_logger, logger, epoch, key="EpDummyCount", with_min_and_max=False)
             log_key_to_tb(tb_logger, logger, epoch, key="EpTotalArcs", with_min_and_max=False)
 
-            if len(logger.epoch_dict['EpDummyStepsNormalized']) > 0:
-                log_key_to_tb(tb_logger, logger, epoch, key="EpDummyStepsNormalized", with_min_and_max=False)
+            if 'EpDummyStepsNormalized' in logger.epoch_dict.keys():
+                if len(logger.epoch_dict['EpDummyStepsNormalized']) > 0:
+                    log_key_to_tb(tb_logger, logger, epoch, key="EpDummyStepsNormalized", with_min_and_max=False)
 
         # Log info about epoch
         logger.log_tabular('Epoch', epoch)
@@ -427,8 +428,9 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
         logger.log_tabular('EpochTemp', current_temp)
         if env_version >= 4:
             logger.log_tabular('EpDummyCount', with_min_and_max=True)
-            if len(logger.epoch_dict['EpDummyStepsNormalized']) > 0:
-                logger.log_tabular('EpDummyStepsNormalized', average_only=True)
+            if 'EpDummyStepsNormalized' in logger.epoch_dict.keys():
+                if len(logger.epoch_dict['EpDummyStepsNormalized']) > 0:
+                    logger.log_tabular('EpDummyStepsNormalized', average_only=True)
             logger.log_tabular('EpTotalArcs', average_only=True)
 
         logger.dump_tabular()

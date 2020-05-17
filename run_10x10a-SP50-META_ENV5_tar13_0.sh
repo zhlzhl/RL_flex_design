@@ -2,8 +2,8 @@
 
 python -m spinup.run_flexibility  \
                              --algo ppo  \
-                             --env_name F10x10a-VR-SP50-v5  \
-                             --exp_name F10x10a-VR-SP50-META_ENV5_tar13  \
+                             --env_name F10x10a-SP50-META-v5  \
+                             --exp_name F10x10a-SP50-META_ENV5_tar13  \
                              --cpu 8 \
                              --epochs 800  \
                              --custom_h 1024-128  \
