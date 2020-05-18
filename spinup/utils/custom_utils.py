@@ -226,6 +226,9 @@ def run_policy_with_custom_logging(env_name, env_version, env_input, target_arcs
         "and we can't run the agent in it. :( \n\n Check out the readthedocs " + \
         "page on Experiment Outputs for how to handle this situation."
 
+    assert env.target_arcs == target_arcs, 'evaluation env target_arcs {} | input target_arcs {}' \
+                                           ''.format(env.target_arcs, target_arcs)
+
     best_performance = 0.0
     best_structure = None
 

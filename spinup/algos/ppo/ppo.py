@@ -380,11 +380,13 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
 
         # Save model
         if (epoch % save_freq == 0) or (epoch == epochs - 1):
-            # # Save a new model every save_freq and at the last epoch. Do not overwrite the previous save.
-            # logger.save_state({'env_name': env_name}, epoch)
 
-            # Save a new model every save_freq and at the last epoch. Only keep one copy - the current model
-            logger.save_state({'env_name': env_name})
+            if meta_learning:
+                # Save a new model every save_freq and at the last epoch. Do not overwrite the previous save.
+                logger.save_state({'env_name': env_name}, epoch)
+            else:
+                # Save a new model every save_freq and at the last epoch. Only keep one copy - the current model
+                logger.save_state({'env_name': env_name})
 
             # Evaluate and save best model
             if do_checkpoint_eval and epoch > 0:
@@ -415,7 +417,7 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
                     env_version=env_version,
                     env_input=env_input,
                     render=False,  # change this to True if you want to visualize how arcs are added during evaluation
-                    target_arcs=env.target_arcs,
+                    target_arcs=env.input_target_arcs,
                     get_action=lambda x: sess.run(pi, feed_dict={x_ph: x[None, :],
                                                                  temperature_ph: eval_temp})[0],
                     # number of samples to draw when simulate demand
