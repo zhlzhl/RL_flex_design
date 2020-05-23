@@ -268,8 +268,6 @@ if __name__ == "__main__":
     # specify parameters
     experiment = '10x26'
     env_input = get_input(experiment)
-    env_version_list = [5]
-    epoch_episodes = 1200
     epoch_episodes = 800
     gamma = 0.99
     lam = 0.999
