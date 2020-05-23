@@ -2,7 +2,7 @@ import os
 import os.path as osp
 
 # Where experiment outputs are saved by default:
-DEFAULT_DATA_DIR = osp.join(osp.abspath(osp.dirname(osp.dirname(__file__))),'data')
+DEFAULT_DATA_DIR = osp.join(osp.abspath(osp.dirname(osp.dirname(__file__))),'data','ablation')
 
 # Whether to automatically insert a date and time stamp into the names of
 # save directories:
@@ -25,4 +25,4 @@ DEFAULT_SHORTHAND = True
 
 # Tells the GridSearch how many seconds to pause for before launching 
 # experiments.
-WAIT_BEFORE_LAUNCH = 7
+WAIT_BEFORE_LAUNCH = 2

@@ -104,9 +104,14 @@ def generate_scripts_for_multiple_target_arcs(experiment, env_input, env_version
                 assert len(target_arcs) >= 1
                 if len(target_arcs) == 1:
                     # add 'tar' to exp_name explicitely
-                    exp_name = 'F{}_CH1024-128_ENV{}_tar{}'.format(experiment, env_version, target_arcs[0])
+                    exp_name = 'F{}_CH{}_ENV{}_tar{}'.format(experiment,
+                                                             '1024-128' if custom_h is None else custom_h,
+                                                             env_version,
+                                                             target_arcs[0])
                 else:
-                    exp_name = 'F{}_CH1024-128_ENV{}'.format(experiment, env_version)
+                    exp_name = 'F{}_CH{}_ENV{}'.format(experiment,
+                                                       '1024-128' if custom_h is None else custom_h,
+                                                       env_version)
 
                 python_string = "python -m spinup.run_flexibility   \\\n   \
                                 --algo ppo    \\\n   \
@@ -171,7 +176,7 @@ def generate_scripts_for_multiple_target_arcs(experiment, env_input, env_version
 def generate_scripts_for_one_target_arcs(experiment, env_input, env_version_list, epoch_episodes, target_arcs,
                                          num_runs, starting_seed, gamma=None, lam=None,
                                          variance_reduction=False, env_n_sample=50,
-                                         early_stop=None, cpu=2, epoch=800, save_freq=10, save_all_eval=None,
+                                         early_stop=None, cpu=8, epoch=800, save_freq=10, save_all_eval=None,
                                          custom_h=None):
     m, n, mean_c, mean_d, sd_d, profit_mat, _, fixed_costs, flex_0 = load_FlexibilityEnv_input(
         _get_full_path(env_input))
@@ -199,7 +204,7 @@ def generate_scripts_for_one_target_arcs(experiment, env_input, env_version_list
             python_string = "python -m spinup.run_flexibility  \\\n \
                             --algo ppo  \\\n \
                             --env_name F{}-v{}  \\\n \
-                            --exp_name F{}_CH1024-128_ENV{}_tar{}  \\\n \
+                            --exp_name F{}_CH{}_ENV{}_tar{}  \\\n \
                             --cpu {} \\\n \
                             --epochs {}  \\\n \
                             --custom_h 1024-128  \\\n \
@@ -213,6 +218,7 @@ def generate_scripts_for_one_target_arcs(experiment, env_input, env_version_list
                 experiment,
                 env_version,
                 experiment,
+                '1024-128' if custom_h is None else custom_h,
                 env_version,
                 target_arcs,
                 cpu,
@@ -264,61 +270,55 @@ if __name__ == "__main__":
     env_input = get_input(experiment)
     env_version_list = [5]
     epoch_episodes = 1200
+    epoch_episodes = 800
     gamma = 0.99
     lam = 0.999
+    custom_h = '1640-332' if experiment == '10x26' else None  # use default 1024-512
+
+    # parameters for Ablation Study
+    env_version_list = [5]
     variance_reduction = True  # for this version of the paper, we do not use variance reduction, i.e., VR=False
-    env_n_sample = 50
+    env_n_sample = 50  # also run for env_n_smaple = 1 and 20
 
-    experiment += "-gamma{}-lam{}".format(gamma, lam)
-
+    # append experiment name with VR and SP. Note that ENV is added to the exp_name later, so no need to add it here.
     if variance_reduction:
         experiment += "-VR"
-
-    # if env_n_sample is not None:
     experiment += "-SP{}".format(env_n_sample)
 
-    if experiment == '10x26':
-        custom_h = '1640-332'
-    else:
-        custom_h = None  # use default 1024-512
-
-    ##### Generate scripts for a list of target_arcs. The list is devided into sub-lists
-    # each contains num_tar_per_script target_arcs.
-    num_tars_per_script = 1
-    # the number of entrypoints to be created with different seeds to do more parallelization
-    num_batches = 8
-    # the number of runs with different seed for each target arc
-    num_runs = 4
-
-    # can also manually specify the target arcs list
-    cpu = 6
-    early_stop = 60
-    save_freq = 10
-    included_tars = [41, 44, 47]
-
-    generate_scripts_for_multiple_target_arcs(experiment, env_input, env_version_list, epoch_episodes,
-                                              num_tars_per_script, num_batches, num_runs, gamma, lam,
-                                              variance_reduction, env_n_sample,
-                                              custom_h=custom_h,
-                                              cpu=cpu,
-                                              early_stop=early_stop,
-                                              save_freq=save_freq,
-                                              included_tars=included_tars)
-
-    # ###### Generate scripts for one particular target_arcs but with different seeds, which will then be called in parallel
-    # target_arcs_list = [13]
-    # cpu = 16
-    # num_runs = 12
+    # ##### Generate scripts for a list of target_arcs. The list is divided into sub-lists
+    # # each contains num_tar_per_script target_arcs.
+    # num_tars_per_script = 2
+    # # the number of entrypoints to be created with different seeds to do more parallelization
+    # num_batches = 2
+    # # the number of runs with different seed for each target arc
+    # num_runs = 6
     #
-    # for target_arcs in target_arcs_list:
-    #     starting_seed = 0
-    #     generate_scripts_for_one_target_arcs(experiment, env_input, env_version_list, epoch_episodes,
-    #                                          target_arcs, num_runs, starting_seed, gamma, lam,
-    #                                          variance_reduction, env_n_sample,
-    #                                          cpu=cpu,
-    #                                          custom_h=custom_h)
+    # # can also manually specify the target arcs list
+    # cpu = 8
+    # early_stop = 60
+    # save_freq = 10
+    #
+    # generate_scripts_for_multiple_target_arcs(experiment, env_input, env_version_list, epoch_episodes,
+    #                                           num_tars_per_script, num_batches, num_runs, gamma, lam,
+    #                                           variance_reduction, env_n_sample,
+    #                                           custom_h=custom_h,
+    #                                           cpu=cpu,
+    #                                           early_stop=early_stop,
+    #                                           save_freq=save_freq)
 
-    # ##### scripts for plotting eval_progress.txt
+    ###### Generate scripts for one particular target_arcs but with different seeds, which will then be called in parallel
+    # Used for Ablation Study
+    target_arcs_list = [13, 22]
+    num_runs = 12
+
+    for target_arcs in target_arcs_list:
+        starting_seed = 0
+        generate_scripts_for_one_target_arcs(experiment, env_input, env_version_list, epoch_episodes,
+                                             target_arcs, num_runs, starting_seed, gamma, lam,
+                                             variance_reduction, env_n_sample,
+                                             custom_h=custom_h)
+
+    # ##### scripts for plotting training curve with progress_eval.txt
     # early_stop = -1
     # epoch = 200
     # target_arcs_list = [13, 22]
