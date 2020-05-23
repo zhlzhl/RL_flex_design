@@ -196,6 +196,8 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
     seed += 10000 * proc_id()
     tf.set_random_seed(seed)
     np.random.seed(seed)
+    logger.log('set tf and np random seed = {}'.format(seed))
+
 
     env = env_fn()
     obs_dim = env.observation_space.shape
@@ -246,9 +248,13 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
         sess.run(tf.global_variables_initializer())
 
     else:  # do finetuning -- load model from meta_model_path
-        assert finetune_model_path is not None, "Please specify the path to the meta learnt model using --meta_model_path"
-        model = restore_tf_graph(sess, fpath=finetune_model_path + '/simple_save999999',
-                                 meta_learning_or_finetune=finetune)
+        assert finetune_model_path is not None, "Please specify the path to the meta learnt model using --finetune_model_path"
+        if 'simple_save' in finetune_model_path:
+            model = restore_tf_graph(sess, fpath=finetune_model_path,
+                                     meta_learning_or_finetune=finetune)
+        else:
+            model = restore_tf_graph(sess, fpath=finetune_model_path + '/simple_save999999',
+                                     meta_learning_or_finetune=finetune)
 
         # get placeholders
         x_ph, a_ph, adv_ph = model['x'], model['a'], model['adv']
@@ -325,7 +331,7 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
                      DeltaLossV=(v_l_new - v_l_old))
 
     start_time = time.time()
-    o, r, d, ep_ret, ep_len, ep_dummy_action_count, ep_dummy_steps_normalized = env.reset(), 0, False, 0, 0, 0, []
+    o, r, d, ep_ret, ep_len, ep_dummy_action_count, ep_len_normalized = env.reset(), 0, False, 0, 0, 0, []
 
     # initialize variables for keeping track of BEST eval performance
     best_eval_AverageEpRet = -0.05  # a negative value so that best model is saved at least once.
@@ -353,9 +359,11 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
             ep_ret += r
             ep_len += 1
 
-            if env_version >= 4 and env.action_is_dummy:  # a is dummy action
-                ep_dummy_action_count += 1
-                ep_dummy_steps_normalized.append(ep_len / env.allowed_steps)
+            if env_version >= 4:
+                ep_len_normalized.append(ep_len / env.allowed_steps)
+                if env.action_is_dummy:  # a is dummy action
+                    ep_dummy_action_count += 1
+
 
             terminal = d or (ep_len == max_ep_len)
 
@@ -372,11 +380,12 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
                     if env_version >= 4:
                         logger.store(EpDummyCount=ep_dummy_action_count)
                         logger.store(EpTotalArcs=env.adjacency_matrix.sum())
-                        if len(ep_dummy_steps_normalized) > 0:
-                            ep_dummy_steps_normalized = np.asarray(ep_dummy_steps_normalized, dtype=np.float32).mean()
-                            logger.store(EpDummyStepsNormalized=ep_dummy_steps_normalized)
 
-                o, r, d, ep_ret, ep_len, ep_dummy_action_count, ep_dummy_steps_normalized = env.reset(), 0, False, 0, 0, 0, []
+                        assert len(ep_len_normalized) > 0
+                        ep_len_normalized = np.asarray(ep_len_normalized, dtype=np.float32).mean()
+                        logger.store(EpDummyStepsNormalized=ep_len_normalized)
+
+                o, r, d, ep_ret, ep_len, ep_dummy_action_count, ep_len_normalized = env.reset(), 0, False, 0, 0, 0, []
 
         # Save model
         if (epoch % save_freq == 0) or (epoch == epochs - 1):
