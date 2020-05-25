@@ -207,8 +207,8 @@ def _terminated(self):
     total_arcs_after_step = np.sum(self.adjacency_matrix)
     env1_terminated = (self.env_version == 1 and total_arcs_after_step == self.target_arcs)
     env2_terminated = (self.env_version == 2 and self.step_count == self.target_arcs)
-    env345_terminated = (self.env_version > 2 and self.step_count == self.allowed_steps)
-    return env1_terminated or env2_terminated or env345_terminated
+    env_3nAbove_terminated = (self.env_version > 2 and self.step_count == self.allowed_steps)
+    return env1_terminated or env2_terminated or env_3nAbove_terminated
 
 
 def _induced_fixed_cost(self, row_index, col_index):
@@ -238,13 +238,15 @@ class FlexibilityEnv(gym.Env):
             fixed_costs=None,
             starting_structure=None,
             std_mean_ratio=None,
-            subtract_full_flexibility_performance=False
+            subtract_full_flexibility_performance=False,
             # to subtract profit of full_flexibility in reward to reduce variance
+            meta_learning=False
 
     ):
         self.n_plant = n_plant
         self.n_product = n_product
-        self.target_arcs = target_arcs
+        self.input_target_arcs = target_arcs
+        self.target_arcs = np.random.randint(low=10, high=29) if meta_learning else target_arcs
         self.n_sample = n_sample
         self.std_mean_ratio = std_mean_ratio
         self.adjacency_matrix = np.random.choice(np.arange(0, 2), size=(self.n_plant, self.n_product), p=[0.9, 0.1])
@@ -284,6 +286,9 @@ class FlexibilityEnv(gym.Env):
 
         # added for subtract_full_flexibility_performance
         self.subtract_full_flexibility_performance = subtract_full_flexibility_performance
+
+        # added for meta_learning
+        self.meta_learning = meta_learning
 
         self.viewer = None
         self.state_dim = n_plant * n_product  # do not include self.target_arcs
@@ -416,6 +421,14 @@ class FlexibilityEnv(gym.Env):
 
         # reset step count
         self.step_count = 0
+
+        # reset target_arcs for meta_learning
+        self.target_arcs = np.random.randint(low=10, high=29) if self.meta_learning else self.input_target_arcs
+        self.allowed_steps = int(self.target_arcs - np.sum(self.starting_structure))
+        assert self.allowed_steps > 0, print("target_arcs = {}, sum(starting_structure) = {}, env_version = {}"
+                                             .format(self.target_arcs,
+                                                     np.sum(self.starting_structure),
+                                                     self.env_version))
 
         if self.reward_shaping in ("SALES_INCREMENT", "VR"):
             self.expected_sales, _ = expected_sales_for_structure(self.adjacency_matrix, self.n_sample,

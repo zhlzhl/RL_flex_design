@@ -161,7 +161,8 @@ def call_experiment(exp_name, thunk, seed=0, num_cpu=1, data_dir=None,
                                                      target_arcs=kwargs['target_arcs'],
                                                      env_input=kwargs['env_input'],
                                                      env_n_sample=kwargs['env_n_sample'],
-                                                     subtract_full_flexibility_performance=kwargs['env_subtract_full_flex'])
+                                                     subtract_full_flexibility_performance=kwargs['env_subtract_full_flex'],
+                                                     meta_leraning=kwargs['meta_learning'])
 
                 del kwargs['env_n_sample'], kwargs['env_subtract_full_flex']
 
@@ -212,6 +213,12 @@ def call_experiment(exp_name, thunk, seed=0, num_cpu=1, data_dir=None,
                    ' --env_version {}'.format(kwargs['env_version']) + \
                    ' --env_input {}'.format(kwargs['env_input']) + \
                    ' --target_arcs {}' .format(kwargs['target_arcs'])
+
+        if kwargs['meta_learning']:
+            test_cmd += ' --meta_learning'
+
+        if kwargs['finetune']:
+            test_cmd += ' --finetune'
 
     test_cmd = colorize(test_cmd, 'green')
 

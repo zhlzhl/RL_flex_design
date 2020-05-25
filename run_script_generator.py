@@ -177,19 +177,22 @@ def generate_scripts_for_one_target_arcs(experiment, env_input, env_version_list
                                          num_runs, starting_seed, gamma=None, lam=None,
                                          variance_reduction=False, env_n_sample=50,
                                          early_stop=None, cpu=8, epoch=800, save_freq=10, save_all_eval=None,
-                                         custom_h=None):
+                                         custom_h=None, meta_learning=False, finetune=False, finetune_path=None,
+                                         finetune_meta_trained_epoch=None):
     m, n, mean_c, mean_d, sd_d, profit_mat, _, fixed_costs, flex_0 = load_FlexibilityEnv_input(
         _get_full_path(env_input))
     print("number of existing arcs {}".format(flex_0.sum()))
 
+    target_arcs_in_names = 0 if meta_learning else target_arcs
+
     for env_version in env_version_list:
         # create entrypoint script
         # !/bin/bash
-        path = 'run_{}_ENV{}_tar{}_entrypoint.sh'.format(experiment, env_version, target_arcs)
+        path = 'run_{}_ENV{}_tar{}_entrypoint.sh'.format(experiment, env_version, target_arcs_in_names)
         python_string = 'for((i=0;i < {};i++)); do bash run_{}_ENV{}_tar{}_'.format(num_runs,
                                                                                     experiment,
                                                                                     env_version,
-                                                                                    target_arcs) \
+                                                                                    target_arcs_in_names) \
                         + '$' + '{' + 'i' + '}' + '.sh & done'
         with open(path, 'w') as f:
             f.write('#!/bin/bash\n\n')
@@ -200,6 +203,8 @@ def generate_scripts_for_one_target_arcs(experiment, env_input, env_version_list
 
         # create scripts to be called in parallel
         for idx in range(num_runs):
+
+            target_arcs = target_arcs if meta_learning is False else (13 if idx % 2 == 1 else 22)
 
             python_string = "python -m spinup.run_flexibility  \\\n \
                             --algo ppo  \\\n \
@@ -220,15 +225,16 @@ def generate_scripts_for_one_target_arcs(experiment, env_input, env_version_list
                 experiment,
                 '1024-128' if custom_h is None else custom_h,
                 env_version,
-                target_arcs,
+                target_arcs_in_names,
                 cpu,
                 epoch,
                 env_version,
                 env_input,
-                target_arcs,
+                target_arcs if meta_learning is False else (13 if idx % 2 == 1 else 22),
                 starting_seed + 10 * idx,
                 save_freq,
-                int(np.ceil((target_arcs - flex_0.sum()) * epoch_episodes))
+                int(np.ceil(
+                    (target_arcs - flex_0.sum()) * epoch_episodes)) if meta_learning is False else 20 * epoch_episodes
             )
 
             if variance_reduction:
@@ -249,12 +255,26 @@ def generate_scripts_for_one_target_arcs(experiment, env_input, env_version_list
             if custom_h is not None:
                 python_string += '                             --custom_h {}  \\\n'.format(custom_h)
 
+            if meta_learning:
+                python_string += '                             --meta_learning  \\\n'
+
+            if finetune:
+                python_string += '                             --finetune  \\\n'
+                if finetune_meta_trained_epoch is None:
+                    python_string += '                             --finetune_model_path {}  \\\n'.format(
+                        '{}_s{}'.format(finetune_path, starting_seed + 10 * idx))
+                else:
+                    python_string += '                             --finetune_model_path {}  \\\n'.format(
+                        '{}_s{}/simple_save{}'.format(finetune_path,
+                                                       starting_seed + 10 * idx,
+                                                       finetune_meta_trained_epoch))
+
             if lam is None:
                 python_string += '                             ;'
             else:
                 python_string += '                             --lam {};'.format(lam)
 
-            path = 'run_{}_ENV{}_tar{}_{}.sh'.format(experiment, env_version, target_arcs, idx)
+            path = 'run_{}_ENV{}_tar{}_{}.sh'.format(experiment, env_version, target_arcs_in_names, idx)
             with open(path, 'w') as f:
                 f.write('#!/bin/bash\n\n')
                 f.write(python_string)
@@ -269,6 +289,7 @@ if __name__ == "__main__":
     experiment = '10x10a'
     env_input = get_input(experiment)
     epoch_episodes = 800
+    # epoch_episodes = 1200
     gamma = 0.99
     lam = 0.999
     custom_h = '1640-332' if experiment == '10x26' else None  # use default 1024-512
@@ -285,16 +306,17 @@ if __name__ == "__main__":
 
     # ##### Generate scripts for a list of target_arcs. The list is divided into sub-lists
     # # each contains num_tar_per_script target_arcs.
-    # num_tars_per_script = 2
+    # num_tars_per_script = 1
     # # the number of entrypoints to be created with different seeds to do more parallelization
-    # num_batches = 2
+    # num_batches = 5
     # # the number of runs with different seed for each target arc
-    # num_runs = 6
+    # num_runs = 4
     #
     # # can also manually specify the target arcs list
-    # cpu = 8
+    # cpu = 6
     # early_stop = 60
     # save_freq = 10
+    # included_tars = [41, 44, 47]
     #
     # generate_scripts_for_multiple_target_arcs(experiment, env_input, env_version_list, epoch_episodes,
     #                                           num_tars_per_script, num_batches, num_runs, gamma, lam,
@@ -302,11 +324,12 @@ if __name__ == "__main__":
     #                                           custom_h=custom_h,
     #                                           cpu=cpu,
     #                                           early_stop=early_stop,
-    #                                           save_freq=save_freq)
+    #                                           save_freq=save_freq,
+    #                                           included_tars=included_tars)
 
-    ###### Generate scripts for one particular target_arcs but with different seeds, which will then be called in parallel
+    ##### Generate scripts for one particular target_arcs but with different seeds, which will then be called in parallel
     # Used for Ablation Study
-    target_arcs_list = [13, 22]
+    target_arcs_list = [13]
     num_runs = 12
 
     for target_arcs in target_arcs_list:
@@ -316,7 +339,7 @@ if __name__ == "__main__":
                                              variance_reduction, env_n_sample,
                                              custom_h=custom_h)
 
-    # ##### scripts for plotting training curve with progress_eval.txt
+    # ##### Generate scripts for plotting training curve with progress_eval.txt
     # early_stop = -1
     # epoch = 200
     # target_arcs_list = [13, 22]
@@ -334,3 +357,45 @@ if __name__ == "__main__":
     #                                          save_freq=save_freq,
     #                                          save_all_eval=save_all_eval,
     #                                          custom_h=custom_h)
+
+    # # ##### Generate scripts for meta_learning training
+    # # During meta training target_arcs are random.
+    # # During evaluation, we fix target_arcs to 13 or 22, so that we can see how well the meta learnt model
+    # # solves a particular problem
+    # target_arcs = None
+    # meta_learning = True
+    # num_runs = 12
+    # early_stop = 30
+    # epoch_episodes = 1200
+    # experiment += '-META'
+    #
+    # starting_seed = 0
+    # generate_scripts_for_one_target_arcs(experiment, env_input, env_version_list, epoch_episodes,
+    #                                      target_arcs, num_runs, starting_seed, gamma, lam,
+    #                                      variance_reduction, env_n_sample, custom_h=custom_h,
+    #                                      early_stop=early_stop,
+    #                                      meta_learning=meta_learning)
+
+    # # ##### Generate scripts for meta_learning finetuning
+    # target_arcs_list = [13, 22]
+    # num_runs = 12
+    # early_stop = 60
+    # epoch_episodes = 800
+    # finetune = True
+    # finetune_meta_trained_epoch = 100
+    # finetune_path = '/home/user/git/RL_flex_design/data/F10x10a-SP50-META_CH1024-128_ENV5_tar0/F10x10a-SP50-META_CH1024-128_ENV5_tar0'
+    # experiment += '-Finetune'
+    # if finetune_meta_trained_epoch:
+    #     experiment += 'Meta{}'.format(finetune_meta_trained_epoch)
+    #
+    #
+    # starting_seed = 0
+    #
+    # for target_arcs in target_arcs_list:
+    #     generate_scripts_for_one_target_arcs(experiment, env_input, env_version_list, epoch_episodes,
+    #                                          target_arcs, num_runs, starting_seed, gamma, lam,
+    #                                          variance_reduction, env_n_sample, custom_h=custom_h,
+    #                                          early_stop=early_stop,
+    #                                          finetune=finetune,
+    #                                          finetune_path=finetune_path,
+    #                                          finetune_meta_trained_epoch=finetune_meta_trained_epoch)

@@ -9,6 +9,7 @@ from datetime import datetime
 from spinup.utils.mpi_tf import MpiAdamOptimizer, sync_all_params
 from spinup.utils.mpi_tools import mpi_fork, mpi_avg, proc_id, mpi_statistics_scalar, num_procs
 from spinup.utils.custom_utils import *
+from spinup.utils.logx import restore_tf_graph
 import copy
 
 
@@ -103,7 +104,8 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
         vf_lr=1e-3, train_pi_iters=80, train_v_iters=80, lam=0.97, max_ep_len=1000,
         target_kl=0.01, logger_kwargs=dict(), save_freq=10, custom_h=None, eval_episodes=50,
         do_checkpoint_eval=False, env_name=None, eval_temp=1.0, train_starting_temp=1.0,
-        env_version=None, env_input=None, target_arcs=None, early_stop_epochs=None, save_all_eval=False):
+        env_version=None, env_input=None, target_arcs=None, early_stop_epochs=None,
+        save_all_eval=False, meta_learning=False, finetune=False, finetune_model_path=None):
     """
 
     Args:
@@ -176,7 +178,7 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
 
     """
     # create logger for training
-    logger = EpochLogger(**logger_kwargs)
+    logger = EpochLogger(meta_learning_or_finetune=(finetune or meta_learning), **logger_kwargs)
     logger.save_config(locals())
 
     # create logger for evaluation to keep track of evaluation values at each checkpoint (or save frequency)
@@ -194,6 +196,8 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
     seed += 10000 * proc_id()
     tf.set_random_seed(seed)
     np.random.seed(seed)
+    logger.log('set tf and np random seed = {}'.format(seed))
+
 
     env = env_fn()
     obs_dim = env.observation_space.shape
@@ -207,14 +211,63 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
         hidden_layers_int_list = [int(h) for h in hidden_layers_str_list]
         ac_kwargs['hidden_sizes'] = hidden_layers_int_list
 
-    # Inputs to computation graph
-    x_ph, a_ph = core.placeholders_from_spaces(env.observation_space, env.action_space)
-    adv_ph, ret_ph, logp_old_ph = core.placeholders(None, None, None)
+    # create a tf session with GPU memory usage option to be allow_growth so that one program will not use up the
+    # whole GPU memory
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+    sess = tf.Session(config=config)
+    # log tf graph
+    tf.summary.FileWriter(tb_logdir, sess.graph)
 
-    temperature_ph = tf.placeholder(tf.float32, shape=(), name="init")
+    if not finetune:
+        # Inputs to computation graph
+        x_ph, a_ph = core.placeholders_from_spaces(env.observation_space, env.action_space)
+        adv_ph, ret_ph, logp_old_ph = core.placeholders(None, None, None)
 
-    # Main outputs from computation graph
-    pi, logp, logp_pi, v = actor_critic(x_ph, a_ph, temperature_ph, **ac_kwargs)
+        temperature_ph = tf.placeholder(tf.float32, shape=(), name="init")
+
+        # Main outputs from computation graph
+        pi, logp, logp_pi, v = actor_critic(x_ph, a_ph, temperature_ph, **ac_kwargs)
+
+        # PPO objectives
+        ratio = tf.exp(logp - logp_old_ph)  # pi(a|s) / pi_old(a|s)
+        min_adv = tf.where(adv_ph > 0, (1 + clip_ratio) * adv_ph, (1 - clip_ratio) * adv_ph)
+        pi_loss = -tf.reduce_mean(tf.minimum(ratio * adv_ph, min_adv))
+        v_loss = tf.reduce_mean((ret_ph - v) ** 2)
+
+        # Info (useful to watch during learning)
+        approx_kl = tf.reduce_mean(logp_old_ph - logp)  # a sample estimate for KL-divergence, easy to compute
+        approx_ent = tf.reduce_mean(-logp)  # a sample estimate for entropy, also easy to compute
+        clipped = tf.logical_or(ratio > (1 + clip_ratio), ratio < (1 - clip_ratio))
+        clipfrac = tf.reduce_mean(tf.cast(clipped, tf.float32))
+
+        # Optimizers
+        train_pi = tf.compat.v1.train.AdamOptimizer(learning_rate=pi_lr).minimize(pi_loss, name='train_pi')
+        train_v = tf.compat.v1.train.AdamOptimizer(learning_rate=vf_lr).minimize(v_loss, name='train_v')
+
+        sess.run(tf.global_variables_initializer())
+
+    else:  # do finetuning -- load model from meta_model_path
+        assert finetune_model_path is not None, "Please specify the path to the meta learnt model using --finetune_model_path"
+        if 'simple_save' in finetune_model_path:
+            model = restore_tf_graph(sess, fpath=finetune_model_path,
+                                     meta_learning_or_finetune=finetune)
+        else:
+            model = restore_tf_graph(sess, fpath=finetune_model_path + '/simple_save999999',
+                                     meta_learning_or_finetune=finetune)
+
+        # get placeholders
+        x_ph, a_ph, adv_ph = model['x'], model['a'], model['adv']
+        ret_ph, logp_old_ph, temperature_ph = model['ret'], model['logp_old'], model['temperature']
+
+        # get model output
+        pi, logp, logp_pi, v = model['pi'], model['logp'], model['logp_pi'], model['v']
+        pi_loss, v_loss = model['pi_loss'], model['v_loss']
+        approx_kl, approx_ent, clipfrac = model['approx_kl'], model['approx_ent'], model['clipfrac']
+
+        # get Optimizers
+        train_pi = model['train_pi']
+        train_v = model['train_v']
 
     # Need all placeholders in *this* order later (to zip with data from buffer)
     all_phs = [x_ph, a_ph, adv_ph, ret_ph, logp_old_ph, temperature_ph]
@@ -230,36 +283,30 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
     var_counts = tuple(core.count_vars(scope) for scope in ['pi', 'v'])
     logger.log('\nNumber of parameters: \t pi: %d, \t v: %d\n' % var_counts)
 
-    # PPO objectives
-    ratio = tf.exp(logp - logp_old_ph)  # pi(a|s) / pi_old(a|s)
-    min_adv = tf.where(adv_ph > 0, (1 + clip_ratio) * adv_ph, (1 - clip_ratio) * adv_ph)
-    pi_loss = -tf.reduce_mean(tf.minimum(ratio * adv_ph, min_adv))
-    v_loss = tf.reduce_mean((ret_ph - v) ** 2)
-
-    # Info (useful to watch during learning)
-    approx_kl = tf.reduce_mean(logp_old_ph - logp)  # a sample estimate for KL-divergence, easy to compute
-    approx_ent = tf.reduce_mean(-logp)  # a sample estimate for entropy, also easy to compute
-    clipped = tf.logical_or(ratio > (1 + clip_ratio), ratio < (1 - clip_ratio))
-    clipfrac = tf.reduce_mean(tf.cast(clipped, tf.float32))
-
-    # Optimizers
-    train_pi = MpiAdamOptimizer(learning_rate=pi_lr).minimize(pi_loss)
-    train_v = MpiAdamOptimizer(learning_rate=vf_lr).minimize(v_loss)
-
-    # create a tf session with GPU memory usage option to be allow_growth so that one program will not use up the
-    # whole GPU memory
-    config = tf.ConfigProto()
-    config.gpu_options.allow_growth = True
-    sess = tf.Session(config=config)
-    sess.run(tf.global_variables_initializer())
-    # log tf graph
-    tf.summary.FileWriter(tb_logdir, sess.graph)
+    # # log tf graph
+    # tf.summary.FileWriter(tb_logdir, sess.graph)
 
     # Sync params across processes
     sess.run(sync_all_params())
 
     # Setup model saving
-    logger.setup_tf_saver(sess, inputs={'x': x_ph, 'temperature': temperature_ph}, outputs={'pi': pi, 'v': v})
+    logger.setup_tf_saver(sess,
+                          inputs={'x': x_ph,
+                                  'a': a_ph,
+                                  'adv': adv_ph,
+                                  'ret': ret_ph,
+                                  'logp_old': logp_old_ph,
+                                  'temperature': temperature_ph},
+                          outputs={'pi': pi,
+                                   'v': v,
+                                   'logp': logp,
+                                   'logp_pi': logp_pi,
+                                   'pi_loss': pi_loss,
+                                   'v_loss': v_loss,
+                                   'approx_kl': approx_kl,
+                                   'approx_ent': approx_ent,
+                                   'clipfrac': clipfrac
+                                   })
 
     def update():
         inputs = {k: v for k, v in zip(all_phs, buf.get())}
@@ -284,7 +331,7 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
                      DeltaLossV=(v_l_new - v_l_old))
 
     start_time = time.time()
-    o, r, d, ep_ret, ep_len, ep_dummy_action_count, ep_dummy_steps_normalized = env.reset(), 0, False, 0, 0, 0, []
+    o, r, d, ep_ret, ep_len, ep_dummy_action_count, ep_len_normalized = env.reset(), 0, False, 0, 0, 0, []
 
     # initialize variables for keeping track of BEST eval performance
     best_eval_AverageEpRet = -0.05  # a negative value so that best model is saved at least once.
@@ -312,9 +359,11 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
             ep_ret += r
             ep_len += 1
 
-            if env_version >= 4 and env.action_is_dummy:  # a is dummy action
-                ep_dummy_action_count += 1
-                ep_dummy_steps_normalized.append(ep_len / env.allowed_steps)
+            if env_version >= 4:
+                ep_len_normalized.append(ep_len / env.allowed_steps)
+                if env.action_is_dummy:  # a is dummy action
+                    ep_dummy_action_count += 1
+
 
             terminal = d or (ep_len == max_ep_len)
 
@@ -331,19 +380,22 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
                     if env_version >= 4:
                         logger.store(EpDummyCount=ep_dummy_action_count)
                         logger.store(EpTotalArcs=env.adjacency_matrix.sum())
-                        if len(ep_dummy_steps_normalized) > 0:
-                            ep_dummy_steps_normalized = np.asarray(ep_dummy_steps_normalized, dtype=np.float32).mean()
-                            logger.store(EpDummyStepsNormalized=ep_dummy_steps_normalized)
 
-                o, r, d, ep_ret, ep_len, ep_dummy_action_count, ep_dummy_steps_normalized = env.reset(), 0, False, 0, 0, 0, []
+                        assert len(ep_len_normalized) > 0
+                        ep_len_normalized = np.asarray(ep_len_normalized, dtype=np.float32).mean()
+                        logger.store(EpDummyStepsNormalized=ep_len_normalized)
+
+                o, r, d, ep_ret, ep_len, ep_dummy_action_count, ep_len_normalized = env.reset(), 0, False, 0, 0, 0, []
 
         # Save model
         if (epoch % save_freq == 0) or (epoch == epochs - 1):
-            # # Save a new model every save_freq and at the last epoch. Do not overwrite the previous save.
-            # logger.save_state({'env_name': env_name}, epoch)
 
-            # Save a new model every save_freq and at the last epoch. Only keep one copy - the current model
-            logger.save_state({'env_name': env_name})
+            if meta_learning:
+                # Save a new model every save_freq and at the last epoch. Do not overwrite the previous save.
+                logger.save_state({'env_name': env_name}, epoch)
+            else:
+                # Save a new model every save_freq and at the last epoch. Only keep one copy - the current model
+                logger.save_state({'env_name': env_name})
 
             # Evaluate and save best model
             if do_checkpoint_eval and epoch > 0:
@@ -374,7 +426,7 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
                     env_version=env_version,
                     env_input=env_input,
                     render=False,  # change this to True if you want to visualize how arcs are added during evaluation
-                    target_arcs=env.target_arcs,
+                    target_arcs=env.input_target_arcs,
                     get_action=lambda x: sess.run(pi, feed_dict={x_ph: x[None, :],
                                                                  temperature_ph: eval_temp})[0],
                     # number of samples to draw when simulate demand
@@ -406,8 +458,9 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
             log_key_to_tb(tb_logger, logger, epoch, key="EpDummyCount", with_min_and_max=False)
             log_key_to_tb(tb_logger, logger, epoch, key="EpTotalArcs", with_min_and_max=False)
 
-            if len(logger.epoch_dict['EpDummyStepsNormalized']) > 0:
-                log_key_to_tb(tb_logger, logger, epoch, key="EpDummyStepsNormalized", with_min_and_max=False)
+            if 'EpDummyStepsNormalized' in logger.epoch_dict.keys():
+                if len(logger.epoch_dict['EpDummyStepsNormalized']) > 0:
+                    log_key_to_tb(tb_logger, logger, epoch, key="EpDummyStepsNormalized", with_min_and_max=False)
 
         # Log info about epoch
         logger.log_tabular('Epoch', epoch)
@@ -427,8 +480,9 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
         logger.log_tabular('EpochTemp', current_temp)
         if env_version >= 4:
             logger.log_tabular('EpDummyCount', with_min_and_max=True)
-            if len(logger.epoch_dict['EpDummyStepsNormalized']) > 0:
-                logger.log_tabular('EpDummyStepsNormalized', average_only=True)
+            if 'EpDummyStepsNormalized' in logger.epoch_dict.keys():
+                if len(logger.epoch_dict['EpDummyStepsNormalized']) > 0:
+                    logger.log_tabular('EpDummyStepsNormalized', average_only=True)
             logger.log_tabular('EpTotalArcs', average_only=True)
 
         logger.dump_tabular()

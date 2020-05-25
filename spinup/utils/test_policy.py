@@ -8,7 +8,8 @@ from spinup.utils.logx import restore_tf_graph
 from spinup.utils.custom_utils import get_custom_env_fn
 
 
-def load_policy(fpath, itr='last', deterministic=False, eval_temp=1.0, use_temp=True, env_name=None, env_version=1):
+def load_policy(fpath, itr='last', deterministic=False, eval_temp=1.0, use_temp=True, env_name=None, env_version=1,
+                meta_learning_or_finetune=False):
     # handle which epoch to load from
     if itr == 'last':
         saves = [int(x[11:]) for x in os.listdir(fpath) if 'simple_save' in x and len(x) > 11]
@@ -18,7 +19,8 @@ def load_policy(fpath, itr='last', deterministic=False, eval_temp=1.0, use_temp=
 
     # load the things!
     sess = tf.Session()
-    model = restore_tf_graph(sess, osp.join(fpath, 'simple_save' + itr))
+    model = restore_tf_graph(sess, osp.join(fpath, 'simple_save' + itr),
+                             meta_learning_or_finetune=meta_learning_or_finetune)
 
     # get the correct op for executing actions
     if deterministic and 'mu' in model.keys():
@@ -103,7 +105,11 @@ if __name__ == '__main__':
                              "until taken target_arcs steps.")
     parser.add_argument("--env_input", type=str, default=None,
                         help="input file specifying settings for FlexibilityEnv")
-
+    parser.add_argument("--meta_learning", action='store_true',
+                        help="Whether to do meta learning")
+    parser.add_argument("--finetune", action='store_true',
+                        help="Whether to do finetuning from meta learning trained model. "
+                             "Need to specify --meta_model_path")
     parser.add_argument('--target_arcs', type=int, default=None,
                         help="to specify the number of target_arcs for FlexibilityEnv")
 
@@ -114,5 +120,6 @@ if __name__ == '__main__':
                                   args.eval_temp,
                                   use_temp=args.use_temp,
                                   env_name=args.env_name,
-                                  env_version=args.env_version)
+                                  env_version=args.env_version,
+                                  meta_learning_or_finetune=(args.meta_learning or args.finetune))
     run_policy(env, get_action, args.len, args.episodes, not (args.norender))
