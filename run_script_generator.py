@@ -289,15 +289,15 @@ if __name__ == "__main__":
     experiment = '10x10a'
     env_input = get_input(experiment)
     epoch_episodes = 800
-    # epoch_episodes = 1200
+    # epoch_episodes = 1200  # used for 10x26
     gamma = 0.99
     lam = 0.999
     custom_h = '1640-332' if experiment == '10x26' else None  # use default 1024-512
 
     # parameters for Ablation Study
     env_version_list = [5]
-    variance_reduction = True  # for this version of the paper, we do not use variance reduction, i.e., VR=False
-    env_n_sample = 50  # also run for env_n_smaple = 1 and 20
+    variance_reduction = False  # for this version of the paper, we do not use variance reduction, i.e., VR=False
+    env_n_sample = 2000  # also run for env_n_smaple = 1 and 20
 
     # append experiment name with VR and SP. Note that ENV is added to the exp_name later, so no need to add it here.
     if variance_reduction:
@@ -329,7 +329,7 @@ if __name__ == "__main__":
 
     ##### Generate scripts for one particular target_arcs but with different seeds, which will then be called in parallel
     # Used for Ablation Study
-    target_arcs_list = [13]
+    target_arcs_list = [13, 22]
     num_runs = 12
 
     for target_arcs in target_arcs_list:
