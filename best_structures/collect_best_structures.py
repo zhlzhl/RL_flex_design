@@ -11,7 +11,7 @@ from spinup.FlexibilityEnv_input.FlexibilityEnv_INPUTS import INPUTS
 
 # looking for filenames starting with "best_eval_performance_n_structure", in sub-directory "simple_save999999" of
 # sub-directory of specified directory
-def collect_best_structures(experiment, env, exclude):
+def collect_best_structures(experiment, env, include, exclude):
     dir = os.getcwd()
     output_dir = dir
     path = Path(dir)
@@ -22,7 +22,7 @@ def collect_best_structures(experiment, env, exclude):
     count = 0
     for root, _, files in os.walk(data_dir):
         if 'simple_save999999' in root:
-            if all([identifier in root for identifier in [experiment, env]]):
+            if all([identifier in root for identifier in [experiment, env]]) and all([identifier in root for identifier in include]):
                 if all([ex not in root for ex in exclude]):
                     # find the right directory of simple_save999999. Now retrieve the right file.
                     for file in files:
@@ -85,7 +85,7 @@ def remove_previously_copied_files(path):
 
 if __name__ == "__main__":
 
-    experiment = '10x26'
+    experiment = '10x10a'
     envs = ['ENV5']
     print()
     # get the input key from the experiment, e.g., get '10x10Obermeyerm' from '10x10Obermeyerm-gamma0.99-lam0.999-SP10',
@@ -94,6 +94,7 @@ if __name__ == "__main__":
     input_path = get_input_path(INPUTS[get_input_key(experiment)])
 
     exclude = ['abcdef']  # exclude is not currently used
+    include = ['SP2000']
 
     m, n, mean_c, mean_d, sd_d, profit_mat, target_arcs, fixed_costs, flex_0 = load_FlexibilityEnv_input(input_path)
 
@@ -108,7 +109,7 @@ if __name__ == "__main__":
     parent_dir_dicts = []
     for env in envs:
         print("==== processing files for {}".format(env))
-        files, parent_dirs = collect_best_structures(experiment, env, exclude)
+        files, parent_dirs = collect_best_structures(experiment, env, include, exclude)
 
         dict_tar_perf = {}  # this stores for a target arc the best performance value for target
         dict_tar_file = {}  # this stores for a target arc the structure pickle file which has the best performance
