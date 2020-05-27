@@ -7,6 +7,7 @@ import pickle
 from spinup.FlexibilityEnv_input.inputload import load_FlexibilityEnv_input
 from spinup.FlexibilityEnv.FlexibilityEnv import expected_sales_for_structure
 from spinup.FlexibilityEnv_input.FlexibilityEnv_INPUTS import INPUTS
+from statistics import mean
 
 
 # looking for filenames starting with "best_eval_performance_n_structure", in sub-directory "simple_save999999" of
@@ -94,7 +95,7 @@ if __name__ == "__main__":
     input_path = get_input_path(INPUTS[get_input_key(experiment)])
 
     exclude = ['abcdef']  # exclude is not currently used
-    include = ['SP2000']
+    include = ['VR', 'SP50']
 
     m, n, mean_c, mean_d, sd_d, profit_mat, target_arcs, fixed_costs, flex_0 = load_FlexibilityEnv_input(input_path)
 
@@ -111,7 +112,8 @@ if __name__ == "__main__":
         print("==== processing files for {}".format(env))
         files, parent_dirs = collect_best_structures(experiment, env, include, exclude)
 
-        dict_tar_perf = {}  # this stores for a target arc the best performance value for target
+        dict_tar_best_perf = {}  # this stores for a target arc the best performance value for target
+        dict_tar_perfs = {}  # this stores for a target arc the list of performances with a purpose to compute average performance
         dict_tar_file = {}  # this stores for a target arc the structure pickle file which has the best performance
         dict_src_dir = {}  # this stores for a target arc the source dir (with name of experiment and seed) where the best strcture is copied from
 
@@ -146,25 +148,29 @@ if __name__ == "__main__":
                                                                                        best_performance,
                                                                                        test_best_perf))
 
-                if tar not in dict_tar_perf:
-                    dict_tar_perf[tar] = test_best_perf
+                if tar not in dict_tar_best_perf:
+                    dict_tar_best_perf[tar] = test_best_perf
                     dict_tar_file[tar] = file
                     dict_src_dir[tar] = parent_dir
 
+                    assert tar not in dict_tar_perfs
+                    dict_tar_perfs[tar] = [test_best_perf]
+
                 else:
-                    if test_best_perf > dict_tar_perf[tar]:
+                    dict_tar_perfs[tar].append(test_best_perf)
+                    if test_best_perf > dict_tar_best_perf[tar]:
                         print('updated dict_tar_file[{}] with {} from {}, '
                               'replacing {} from {}'.format(tar,
                                                             test_best_perf,
                                                             parent_dir,
-                                                            dict_tar_perf[tar],
+                                                            dict_tar_best_perf[tar],
                                                             dict_src_dir[tar]))
-                        dict_tar_perf[tar] = test_best_perf
+                        dict_tar_best_perf[tar] = test_best_perf
                         dict_tar_file[tar] = file
                         dict_src_dir[tar] = parent_dir
 
         # store dict_tar_perf to perf_dicts
-        perf_dicts.append(dict_tar_perf.copy())
+        perf_dicts.append(dict_tar_best_perf.copy())
         files_dicts.append(dict_tar_file.copy())
         parent_dir_dicts.append(dict_src_dir)
 
@@ -188,11 +194,19 @@ if __name__ == "__main__":
 
         [print(key, " :: ", value) for (key, value) in sorted(dict_src_dir.items())]
 
-        [print(key, " :: ", value) for (key, value) in sorted(dict_tar_perf.items())]
+        [print(key, " :: ", value) for (key, value) in sorted(dict_tar_best_perf.items())]
 
         print("Only printing out values for easy copy/paste to excel file")
-        [print(value) for (key, value) in sorted(dict_tar_perf.items())]
+        [print(value) for (key, value) in sorted(dict_tar_best_perf.items())]
 
         # todo add the print of the original files of best structure selected
 
         print("---- done for {}\n\n".format(env))
+
+        dict_tar_average_perf = {}
+        # compute average
+        for tar, perfs in dict_tar_perfs.items():
+            average_perf = mean(perfs)
+            dict_tar_average_perf[tar] = average_perf
+            print("{} :: average perf {} ".format(tar, average_perf))
+
