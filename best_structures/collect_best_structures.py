@@ -95,7 +95,7 @@ if __name__ == "__main__":
     input_path = get_input_path(INPUTS[get_input_key(experiment)])
 
     exclude = ['abcdef']  # exclude is not currently used
-    include = ['VR', 'SP50']
+    include = ['SP1000']
 
     m, n, mean_c, mean_d, sd_d, profit_mat, target_arcs, fixed_costs, flex_0 = load_FlexibilityEnv_input(input_path)
 

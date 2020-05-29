@@ -286,7 +286,7 @@ def generate_scripts_for_one_target_arcs(experiment, env_input, env_version_list
 
 if __name__ == "__main__":
     # specify parameters
-    experiment = '8x16JG'
+    experiment = '10x10Obermeyerm'
     env_input = get_input(experiment)
     epoch_episodes = 800
     # epoch_episodes = 1200  # used for 10x26
@@ -304,28 +304,31 @@ if __name__ == "__main__":
         experiment += "-VR"
     experiment += "-SP{}".format(env_n_sample)
 
-    # ##### Generate scripts for a list of target_arcs. The list is divided into sub-lists
-    # # each contains num_tar_per_script target_arcs.
-    # num_tars_per_script = 1
-    # # the number of entrypoints to be created with different seeds to do more parallelization
-    # num_batches = 5
-    # # the number of runs with different seed for each target arc
-    # num_runs = 4
-    #
-    # # can also manually specify the target arcs list
-    # cpu = 6
-    # early_stop = 60
-    # save_freq = 10
+    ##### Generate scripts for a list of target_arcs. The list is divided into sub-lists
+    # each contains num_tar_per_script target_arcs.
+    num_tars_per_script = 1
+    # the number of entrypoints to be created with different seeds to do more parallelization
+    num_batches = 2
+    # the number of runs with different seed for each target arc
+    num_runs = 6
+
+    # can also manually specify the target arcs list
+    cpu = 8
+    early_stop = 60
+    save_freq = 30
+    epoch = 300
     # included_tars = [41, 44, 47]
-    #
-    # generate_scripts_for_multiple_target_arcs(experiment, env_input, env_version_list, epoch_episodes,
-    #                                           num_tars_per_script, num_batches, num_runs, gamma, lam,
-    #                                           variance_reduction, env_n_sample,
-    #                                           custom_h=custom_h,
-    #                                           cpu=cpu,
-    #                                           early_stop=early_stop,
-    #                                           save_freq=save_freq,
-    #                                           included_tars=included_tars)
+
+    generate_scripts_for_multiple_target_arcs(experiment, env_input, env_version_list, epoch_episodes,
+                                              num_tars_per_script, num_batches, num_runs, gamma, lam,
+                                              variance_reduction, env_n_sample,
+                                              custom_h=custom_h,
+                                              cpu=cpu,
+                                              early_stop=early_stop,
+                                              epoch=epoch,
+                                              save_freq=save_freq,
+                                              # included_tars=included_tars
+                                              )
 
     # ##### Generate scripts for one particular target_arcs but with different seeds, which will then be called in parallel
     # # Used for Ablation Study
@@ -339,24 +342,24 @@ if __name__ == "__main__":
     #                                          variance_reduction, env_n_sample,
     #                                          custom_h=custom_h)
 
-    ##### Generate scripts for plotting training curve with progress_eval.txt
-    early_stop = 60
-    epoch = 300
-    target_arcs_list = [16, 19, 22, 25, 28, 31, 34]
-    save_freq = 30
-    save_all_eval = True
-
-    for target_arcs in target_arcs_list:
-        num_runs = 12
-        starting_seed = 0
-        generate_scripts_for_one_target_arcs(experiment, env_input, env_version_list, epoch_episodes,
-                                             target_arcs, num_runs, starting_seed, gamma, lam,
-                                             variance_reduction, env_n_sample,
-                                             early_stop=early_stop,
-                                             epoch=epoch,
-                                             save_freq=save_freq,
-                                             save_all_eval=save_all_eval,
-                                             custom_h=custom_h)
+    # ##### Generate scripts for plotting training curve with progress_eval.txt
+    # early_stop = 60
+    # epoch = 300
+    # target_arcs_list = [16, 19, 22, 25, 28, 31, 34]
+    # save_freq = 30
+    # save_all_eval = True
+    #
+    # for target_arcs in target_arcs_list:
+    #     num_runs = 12
+    #     starting_seed = 0
+    #     generate_scripts_for_one_target_arcs(experiment, env_input, env_version_list, epoch_episodes,
+    #                                          target_arcs, num_runs, starting_seed, gamma, lam,
+    #                                          variance_reduction, env_n_sample,
+    #                                          early_stop=early_stop,
+    #                                          epoch=epoch,
+    #                                          save_freq=save_freq,
+    #                                          save_all_eval=save_all_eval,
+    #                                          custom_h=custom_h)
 
     # # ##### Generate scripts for meta_learning training
     # # During meta training target_arcs are random.
