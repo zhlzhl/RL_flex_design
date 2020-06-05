@@ -203,8 +203,11 @@ def generate_scripts_for_one_target_arcs(experiment, env_input, env_version_list
 
         # create scripts to be called in parallel
         for idx in range(num_runs):
-
-            target_arcs = target_arcs if meta_learning is False else (13 if idx % 2 == 1 else 22)
+            if meta_learning:
+                meta_eval_tars = [29, 44] if '10x26' in experiment else [13, 22]
+                target_arcs = meta_eval_tars[0] if idx % 2 == 1 else meta_eval_tars[1]
+            else:
+                target_arcs = target_arcs
 
             python_string = "python -m spinup.run_flexibility  \\\n \
                             --algo ppo  \\\n \
@@ -212,7 +215,7 @@ def generate_scripts_for_one_target_arcs(experiment, env_input, env_version_list
                             --exp_name F{}_CH{}_ENV{}_tar{}  \\\n \
                             --cpu {} \\\n \
                             --epochs {}  \\\n \
-                            --custom_h 1024-128  \\\n \
+                            --custom_h {}  \\\n \
                             --env_version {}  \\\n \
                             --env_input {}  \\\n \
                             --target_arcs  {}  \\\n \
@@ -228,13 +231,14 @@ def generate_scripts_for_one_target_arcs(experiment, env_input, env_version_list
                 target_arcs_in_names,
                 cpu,
                 epoch,
+                '1024-128' if custom_h is None else custom_h,
                 env_version,
                 env_input,
-                target_arcs if meta_learning is False else (13 if idx % 2 == 1 else 22),
+                target_arcs if meta_learning is False else (meta_eval_tars[0] if idx % 2 == 1 else meta_eval_tars[1]),
                 starting_seed + 10 * idx,
                 save_freq,
                 int(np.ceil(
-                    (target_arcs - flex_0.sum()) * epoch_episodes)) if meta_learning is False else 20 * epoch_episodes
+                    (target_arcs - flex_0.sum()) * epoch_episodes)) if meta_learning is False else (40 * epoch_episodes if '10x26' in experiment else 20 * epoch_episodes)
             )
 
             if variance_reduction:
@@ -286,7 +290,7 @@ def generate_scripts_for_one_target_arcs(experiment, env_input, env_version_list
 
 if __name__ == "__main__":
     # specify parameters
-    experiment = '10x10a'
+    experiment = '10x26'
     env_input = get_input(experiment)
     epoch_episodes = 800
     # epoch_episodes = 1200
@@ -297,7 +301,7 @@ if __name__ == "__main__":
     # parameters for Ablation Study
     env_version_list = [5]
     variance_reduction = True  # for this version of the paper, we do not use variance reduction, i.e., VR=False
-    env_n_sample = 50  # also run for env_n_smaple = 1 and 20
+    env_n_sample = 20  # also run for env_n_smaple = 1 and 20
 
     # append experiment name with VR and SP. Note that ENV is added to the exp_name later, so no need to add it here.
     if variance_reduction:
@@ -327,17 +331,17 @@ if __name__ == "__main__":
     #                                           save_freq=save_freq,
     #                                           included_tars=included_tars)
 
-    ##### Generate scripts for one particular target_arcs but with different seeds, which will then be called in parallel
-    # Used for Ablation Study
-    target_arcs_list = [13]
-    num_runs = 12
-
-    for target_arcs in target_arcs_list:
-        starting_seed = 0
-        generate_scripts_for_one_target_arcs(experiment, env_input, env_version_list, epoch_episodes,
-                                             target_arcs, num_runs, starting_seed, gamma, lam,
-                                             variance_reduction, env_n_sample,
-                                             custom_h=custom_h)
+    # ##### Generate scripts for one particular target_arcs but with different seeds, which will then be called in parallel
+    # # Used for Ablation Study
+    # target_arcs_list = [13]
+    # num_runs = 12
+    #
+    # for target_arcs in target_arcs_list:
+    #     starting_seed = 0
+    #     generate_scripts_for_one_target_arcs(experiment, env_input, env_version_list, epoch_episodes,
+    #                                          target_arcs, num_runs, starting_seed, gamma, lam,
+    #                                          variance_reduction, env_n_sample,
+    #                                          custom_h=custom_h)
 
     # ##### Generate scripts for plotting training curve with progress_eval.txt
     # early_stop = -1
@@ -358,23 +362,28 @@ if __name__ == "__main__":
     #                                          save_all_eval=save_all_eval,
     #                                          custom_h=custom_h)
 
-    # # ##### Generate scripts for meta_learning training
-    # # During meta training target_arcs are random.
-    # # During evaluation, we fix target_arcs to 13 or 22, so that we can see how well the meta learnt model
-    # # solves a particular problem
-    # target_arcs = None
-    # meta_learning = True
-    # num_runs = 12
-    # early_stop = 30
-    # epoch_episodes = 1200
-    # experiment += '-META'
-    #
-    # starting_seed = 0
-    # generate_scripts_for_one_target_arcs(experiment, env_input, env_version_list, epoch_episodes,
-    #                                      target_arcs, num_runs, starting_seed, gamma, lam,
-    #                                      variance_reduction, env_n_sample, custom_h=custom_h,
-    #                                      early_stop=early_stop,
-    #                                      meta_learning=meta_learning)
+    # ##### Generate scripts for meta_learning training
+    # During meta training target_arcs are random.
+    # During evaluation, we fix target_arcs to 13 or 22, so that we can see how well the meta learnt model
+    # solves a particular problem
+    target_arcs = None
+    meta_learning = True
+    num_runs = 12
+    save_freq = 20
+    epoch = 100
+    early_stop = -1
+    epoch_episodes = 1200
+    experiment += '-META'
+
+    starting_seed = 0
+    generate_scripts_for_one_target_arcs(experiment, env_input, env_version_list, epoch_episodes,
+                                         target_arcs, num_runs, starting_seed, gamma, lam,
+                                         variance_reduction, env_n_sample,
+                                         custom_h=custom_h,
+                                         early_stop=early_stop,
+                                         save_freq=save_freq,
+                                         epoch=epoch,
+                                         meta_learning=meta_learning)
 
     # # ##### Generate scripts for meta_learning finetuning
     # target_arcs_list = [13, 22]

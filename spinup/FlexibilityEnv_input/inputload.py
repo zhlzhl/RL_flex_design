@@ -28,7 +28,7 @@ def load_FlexibilityEnv_input(file):
 
 
 if __name__ == "__main__":
-    experiment = '8x16JG'
+    experiment = '10x26'
     input_file = INPUTS[experiment]
     file = os.path.join(os.getcwd(), input_file)
 

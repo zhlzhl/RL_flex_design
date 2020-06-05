@@ -423,7 +423,10 @@ class FlexibilityEnv(gym.Env):
         self.step_count = 0
 
         # reset target_arcs for meta_learning
-        self.target_arcs = np.random.randint(low=10, high=29) if self.meta_learning else self.input_target_arcs
+        if self.n_plant * self.n_product == 260:  # for env 10x26
+            self.target_arcs = np.random.randint(low=26, high=53) if self.meta_learning else self.input_target_arcs
+        else:
+            self.target_arcs = np.random.randint(low=10, high=29) if self.meta_learning else self.input_target_arcs
         self.allowed_steps = int(self.target_arcs - np.sum(self.starting_structure))
         assert self.allowed_steps > 0, print("target_arcs = {}, sum(starting_structure) = {}, env_version = {}"
                                              .format(self.target_arcs,
