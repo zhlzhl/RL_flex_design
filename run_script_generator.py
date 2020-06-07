@@ -66,7 +66,10 @@ def generate_scripts_for_multiple_target_arcs(experiment, env_input, env_version
                                               epoch=800,
                                               save_freq=10,
                                               save_all_eval=None,
-                                              included_tars=None):
+                                              included_tars=None,
+                                              meta_learning=False, finetune=False, finetune_path=None,
+                                              finetune_meta_trained_epoch=None
+                                              ):
     m, n, mean_c, mean_d, sd_d, profit_mat, target_arcs, fixed_costs, flex_0 = load_FlexibilityEnv_input(
         _get_full_path(env_input))
     print("number of existing arcs {}".format(flex_0.sum()))
@@ -119,7 +122,7 @@ def generate_scripts_for_multiple_target_arcs(experiment, env_input, env_version
                                 --exp_name {}    \\\n   \
                                 --cpu {}   \\\n   \
                                 --epochs {}    \\\n   \
-                                --custom_h 1024-128   \\\n   \
+                                --custom_h {}   \\\n   \
                                 --env_version {}   \\\n   \
                                 --env_input {}   \\\n   \
                                 --target_arcs  {}   \\\n   \
@@ -132,6 +135,7 @@ def generate_scripts_for_multiple_target_arcs(experiment, env_input, env_version
                     exp_name,
                     cpu,
                     epoch,
+                    custom_h,
                     env_version,
                     env_input,
                     _get_target_arcs_string(target_arcs),
@@ -146,14 +150,22 @@ def generate_scripts_for_multiple_target_arcs(experiment, env_input, env_version
                 if env_n_sample != 50:
                     python_string += '                                   --env_n_sample {}  \\\n'.format(env_n_sample)
 
-                if custom_h is not None:
-                    python_string += '                                   --custom_h {}   \\\n'.format(custom_h)
-
                 if early_stop is not None:
                     python_string += '                                   --early_stop {}  \\\n'.format(early_stop)
 
                 if save_all_eval is not None:
                     python_string += '                                   --save_all_eval  \\\n'
+
+                if finetune:
+                    python_string += '                                   --finetune  \\\n'
+                    if finetune_meta_trained_epoch is None:
+                        python_string += '                                   --finetune_model_path {}  \\\n'.format(
+                            '{}_s{}'.format(finetune_path, starting_seed + 10 * idx))
+                    else:
+                        python_string += '                                   --finetune_model_path {}  \\\n'.format(
+                            '{}_s{}/simple_save{}'.format(finetune_path,
+                                                          starting_seed + 10 * idx,
+                                                          finetune_meta_trained_epoch))
 
                 if gamma is not None:
                     python_string += '                                   --gamma {}   \\\n'.format(gamma)
@@ -238,7 +250,8 @@ def generate_scripts_for_one_target_arcs(experiment, env_input, env_version_list
                 starting_seed + 10 * idx,
                 save_freq,
                 int(np.ceil(
-                    (target_arcs - flex_0.sum()) * epoch_episodes)) if meta_learning is False else (40 * epoch_episodes if '10x26' in experiment else 20 * epoch_episodes)
+                    (target_arcs - flex_0.sum()) * epoch_episodes)) if meta_learning is False else (
+                    40 * epoch_episodes if '10x26' in experiment else 20 * epoch_episodes)
             )
 
             if variance_reduction:
@@ -270,8 +283,8 @@ def generate_scripts_for_one_target_arcs(experiment, env_input, env_version_list
                 else:
                     python_string += '                             --finetune_model_path {}  \\\n'.format(
                         '{}_s{}/simple_save{}'.format(finetune_path,
-                                                       starting_seed + 10 * idx,
-                                                       finetune_meta_trained_epoch))
+                                                      starting_seed + 10 * idx,
+                                                      finetune_meta_trained_epoch))
 
             if lam is None:
                 python_string += '                             ;'
@@ -366,40 +379,38 @@ if __name__ == "__main__":
     # During meta training target_arcs are random.
     # During evaluation, we fix target_arcs to 13 or 22, so that we can see how well the meta learnt model
     # solves a particular problem
-    target_arcs = None
-    meta_learning = True
-    num_runs = 12
-    save_freq = 20
-    epoch = 100
-    early_stop = -1
-    epoch_episodes = 1200
-    experiment += '-META'
-
-    starting_seed = 0
-    generate_scripts_for_one_target_arcs(experiment, env_input, env_version_list, epoch_episodes,
-                                         target_arcs, num_runs, starting_seed, gamma, lam,
-                                         variance_reduction, env_n_sample,
-                                         custom_h=custom_h,
-                                         early_stop=early_stop,
-                                         save_freq=save_freq,
-                                         epoch=epoch,
-                                         meta_learning=meta_learning)
-
-    # # ##### Generate scripts for meta_learning finetuning
-    # target_arcs_list = [13, 22]
+    # target_arcs = None
+    # meta_learning = True
     # num_runs = 12
-    # early_stop = 60
-    # epoch_episodes = 800
-    # finetune = True
-    # finetune_meta_trained_epoch = 100
-    # finetune_path = '/home/user/git/RL_flex_design/data/F10x10a-SP50-META_CH1024-128_ENV5_tar0/F10x10a-SP50-META_CH1024-128_ENV5_tar0'
-    # experiment += '-Finetune'
-    # if finetune_meta_trained_epoch:
-    #     experiment += 'Meta{}'.format(finetune_meta_trained_epoch)
-    #
-    #
+    # save_freq = 20
+    # epoch = 200
+    # early_stop = -1
+    # epoch_episodes = 1200
+    # experiment += '-META'
     # starting_seed = 0
-    #
+    # generate_scripts_for_one_target_arcs(experiment, env_input, env_version_list, epoch_episodes,
+    #                                      target_arcs, num_runs, starting_seed, gamma, lam,
+    #                                      variance_reduction, env_n_sample,
+    #                                      custom_h=custom_h,
+    #                                      early_stop=early_stop,
+    #                                      save_freq=save_freq,
+    #                                      epoch=epoch,
+    #                                      meta_learning=meta_learning)
+
+    # ##### Generate scripts for meta_learning finetuning
+    target_arcs_list = [26, 29, 32, 35, 38, 41, 44, 47]
+    num_runs = 12
+    save_freq = 10
+    early_stop = 40
+    epoch = 300
+    epoch_episodes = 800
+    finetune = True
+    finetune_meta_trained_epoch = 180
+    finetune_path = '/home/user/git/RL_flex_design/data/10x26_MAML/F10x26-VR-SP20-META_CH1640-332_ENV5_tar0/F10x26-VR-SP20-META_CH1640-332_ENV5_tar0'
+    experiment += '-Finetune'
+    if finetune_meta_trained_epoch:
+        experiment += 'Meta{}'.format(finetune_meta_trained_epoch)
+    # starting_seed = 0
     # for target_arcs in target_arcs_list:
     #     generate_scripts_for_one_target_arcs(experiment, env_input, env_version_list, epoch_episodes,
     #                                          target_arcs, num_runs, starting_seed, gamma, lam,
@@ -408,3 +419,19 @@ if __name__ == "__main__":
     #                                          finetune=finetune,
     #                                          finetune_path=finetune_path,
     #                                          finetune_meta_trained_epoch=finetune_meta_trained_epoch)
+
+    num_batches = 1
+    num_tars_per_script = 8
+    cpu = 8
+    included_tars = [26, 29, 32, 35, 38, 41, 44, 47]
+    generate_scripts_for_multiple_target_arcs(experiment, env_input, env_version_list, epoch_episodes,
+                                              num_tars_per_script, num_batches, num_runs, gamma, lam,
+                                              variance_reduction, env_n_sample,
+                                              custom_h=custom_h,
+                                              cpu=cpu,
+                                              early_stop=early_stop,
+                                              save_freq=save_freq,
+                                              included_tars=included_tars,
+                                              finetune=finetune,
+                                              finetune_path=finetune_path,
+                                              finetune_meta_trained_epoch=finetune_meta_trained_epoch)
