@@ -85,6 +85,7 @@ def generate_scripts_for_multiple_target_arcs(experiment, env_input, env_version
 
     for batch in range(num_batches):
         starting_seed = 100 * batch
+        # starting_seed = batch * num_runs * 10
         for env_version in env_version_list:
             # create entrypoint script
             # !/bin/bash
@@ -314,7 +315,7 @@ if __name__ == "__main__":
     # parameters for Ablation Study
     env_version_list = [5]
     variance_reduction = True  # for this version of the paper, we do not use variance reduction, i.e., VR=False
-    env_n_sample = 20  # also run for env_n_smaple = 1 and 20
+    env_n_sample = 50  # also run for env_n_smaple = 1 and 20
 
     # append experiment name with VR and SP. Note that ENV is added to the exp_name later, so no need to add it here.
     if variance_reduction:
@@ -421,6 +422,7 @@ if __name__ == "__main__":
     #                                          finetune_meta_trained_epoch=finetune_meta_trained_epoch)
 
     num_batches = 1
+    num_runs = 1
     num_tars_per_script = 8
     cpu = 8
     included_tars = [26, 29, 32, 35, 38, 41, 44, 47]
